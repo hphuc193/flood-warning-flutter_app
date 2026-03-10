@@ -7,6 +7,7 @@ import 'edit_profile_screen.dart';
 import 'saved_locations_screen.dart';
 import '../checklist_screen.dart';
 import '../evacuation_guide_screen.dart';
+import '../emergency_contacts_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -150,6 +151,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       MaterialPageRoute(
                         builder: (_) => const EvacuationGuideScreen(),
                       ),
+                    );
+                  },
+                ),
+
+                _buildMenuOption(
+                  icon: Icons.contact_phone_rounded,
+                  title: "Danh bạ khẩn cấp",
+                  subtitle: "Số điện thoại cứu hộ và liên hệ người thân",
+                  iconColor: Colors.redAccent, // Màu đỏ nổi bật cho tính năng khẩn cấp
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const EmergencyContactsScreen()),
                     );
                   },
                 ),
