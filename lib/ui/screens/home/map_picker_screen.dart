@@ -31,7 +31,9 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     super.dispose();
   }
 
-  // Hàm gọi API tìm kiếm
+  // ==========================================
+  // HÀM TÌM KIẾM ĐÃ SỬA LỖI API PHOTON
+  // ==========================================
   Future<void> _fetchSuggestions(String query) async {
     if (query.isEmpty) {
       if (mounted) {
@@ -49,7 +51,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     if (mounted) setState(() => _isLoadingSuggestions = true);
 
     try {
-      final url = "https://photon.komoot.io/api/?q=$query&limit=5&lang=vi"; // Đổi sang tiếng Việt cho dễ tìm
+      // Đã sửa 'lang=vi' thành 'lang=en'
+      final url = "https://photon.komoot.io/api/?q=$query&limit=5&lang=en";
 
       final response = await Dio().get(
         url,
@@ -85,6 +88,9 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     });
   }
 
+  // ==========================================
+  // HÀM CHỌN VỊ TRÍ (Tích hợp bản vá UX con trỏ)
+  // ==========================================
   void _selectLocation(dynamic feature) {
     try {
       final coordinates = feature['geometry']['coordinates'];
@@ -102,10 +108,15 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
         _center = LatLng(lat, lon);
         _selectedName = displayName;
         _suggestions = [];
-        _searchController.text = displayName;
+
+        // Fix UX: Điền text và đẩy con trỏ về cuối dòng
+        _searchController.value = TextEditingValue(
+          text: displayName,
+          selection: TextSelection.collapsed(offset: displayName.length),
+        );
       });
 
-      _mapController.move(_center, 15.0); // Zoom lại gần hơn khi chọn xong
+      _mapController.move(_center, 15.0);
     } catch (e) {
       print("Lỗi parse tọa độ: $e");
     }
@@ -129,6 +140,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     _center = position.center!;
                     if (_suggestions.isNotEmpty) _suggestions = [];
                   });
+                  FocusScope.of(context).unfocus(); // Đóng bàn phím khi vuốt map
                 }
               },
               onTap: (_, __) {
@@ -139,7 +151,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.hoangphuc.flood_warning',
+                userAgentPackageName: 'vn.edu.umt.floodwarning', // Cập nhật User-Agent an toàn
               ),
             ],
           ),
@@ -147,7 +159,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           // 2. GHIM ĐỎ NẰM CỐ ĐỊNH Ở GIỮA
           const Center(
             child: Padding(
-              padding: EdgeInsets.only(bottom: 40), // Cân bằng độ cao của Icon
+              padding: EdgeInsets.only(bottom: 40),
               child: Icon(Icons.location_on, size: 50, color: Colors.red),
             ),
           ),
@@ -159,13 +171,12 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             right: 20,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent, // Đổi màu thành đỏ cho hợp với chức năng báo cáo
+                backgroundColor: Colors.redAccent,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 elevation: 5,
               ),
               onPressed: () {
-                // Trả mảng [lat, long] về cho CreateReportScreen
                 Navigator.pop(context, [_center.latitude, _center.longitude]);
               },
               child: const Row(
@@ -191,7 +202,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                         backgroundColor: Colors.white,
                         child: IconButton(
                           icon: const Icon(Icons.arrow_back, color: Colors.black),
-                          onPressed: () => Navigator.pop(context), // Trả về null
+                          onPressed: () => Navigator.pop(context),
                         ),
                       ),
                     ),
