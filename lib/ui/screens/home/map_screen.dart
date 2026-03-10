@@ -383,7 +383,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
           // ── 3. MAP NAME BADGE ────────────────────────
           Positioned(
-            bottom: 30, // Chuyển sang góc trái dưới cùng
+            bottom: 110, // Chuyển sang góc trái dưới cùng
             left: 16,
             child: _MapNameBadge(name: _currentMapName),
           ),
@@ -404,7 +404,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
           // ── 5. FAB CLUSTER (bottom right) ────────────
           Positioned(
-            bottom: 30,
+            bottom: 110,
             right: 16,
             child: Column(
               mainAxisSize: MainAxisSize.min,
