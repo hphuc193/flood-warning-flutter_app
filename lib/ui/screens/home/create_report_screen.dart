@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+// Nhớ import file MapPickerScreen mà chúng ta sẽ tạo ở Bước 2
+import 'map_picker_screen.dart';
 import '../../../providers/report_provider.dart';
 
 class CreateReportScreen extends StatefulWidget {
@@ -16,7 +18,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   final _descController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   List<XFile> _selectedImages = [];
-  Position? _currentPosition;
+
+  // Tách riêng Lat/Lng để dễ cập nhật từ Map
+  double? _latitude;
+  double? _longitude;
   bool _gettingLocation = true;
 
   @override
@@ -27,6 +32,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
   // Hàm lấy vị trí GPS
   Future<void> _getCurrentLocation() async {
+    setState(() => _gettingLocation = true);
     bool serviceEnabled;
     LocationPermission permission;
 
@@ -50,12 +56,30 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       return;
     }
 
-    // Lấy vị trí
     Position position = await Geolocator.getCurrentPosition();
     setState(() {
-      _currentPosition = position;
+      _latitude = position.latitude;
+      _longitude = position.longitude;
       _gettingLocation = false;
     });
+  }
+
+  // Hàm mở màn hình chọn bản đồ
+  Future<void> _openMapPicker() async {
+    // Chuyển sang màn hình Map, đợi kết quả trả về
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MapPickerScreen()),
+    );
+
+    // Nếu người dùng chọn xong và trả về mảng [lat, lng]
+    if (result != null && result is List<double>) {
+      setState(() {
+        _latitude = result[0];
+        _longitude = result[1];
+        _gettingLocation = false;
+      });
+    }
   }
 
   // Hàm chọn ảnh
@@ -79,7 +103,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Phần hiển thị tọa độ
+            // 1. Phần hiển thị tọa độ đã được nâng cấp
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -87,23 +111,45 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.blue.shade200),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.location_on, color: Colors.blue),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _gettingLocation
-                        ? const Text("Đang lấy tọa độ...")
-                        : _currentPosition != null
-                        ? Text(
-                      "Vĩ độ: ${_currentPosition!.latitude.toStringAsFixed(5)}\nKinh độ: ${_currentPosition!.longitude.toStringAsFixed(5)}",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    )
-                        : const Text("Không lấy được vị trí. Hãy bật GPS."),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, color: Colors.blue),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _gettingLocation
+                            ? const Text("Đang lấy tọa độ...")
+                            : _latitude != null
+                            ? Text(
+                          "Vĩ độ: ${_latitude!.toStringAsFixed(5)}\nKinh độ: ${_longitude!.toStringAsFixed(5)}",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        )
+                            : const Text("Chưa có vị trí. Hãy bật GPS hoặc chọn trên bản đồ."),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: _getCurrentLocation,
+                  const Divider(height: 20),
+                  // Hai nút công cụ: Dùng GPS hiện tại & Chọn trên bản đồ
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _getCurrentLocation,
+                        icon: const Icon(Icons.my_location, size: 18),
+                        label: const Text("Dùng GPS"),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _openMapPicker,
+                        icon: const Icon(Icons.map, size: 18),
+                        label: const Text("Chọn trên bản đồ"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
                   )
                 ],
               ),
@@ -136,7 +182,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Hiển thị list ảnh đã chọn
             if (_selectedImages.isNotEmpty)
               SizedBox(
                 height: 100,
@@ -187,7 +232,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               height: 50,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                onPressed: (reportProvider.isLoading || _currentPosition == null)
+                onPressed: (reportProvider.isLoading || _latitude == null)
                     ? null
                     : () async {
                   if (_descController.text.isEmpty) {
@@ -195,10 +240,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     return;
                   }
 
-                  // Gọi Provider để gửi
                   bool success = await reportProvider.createReport(
-                      _currentPosition!.latitude,
-                      _currentPosition!.longitude,
+                      _latitude!,
+                      _longitude!,
                       _descController.text,
                       _selectedImages.map((e) => e.path).toList(),
                       context
@@ -206,7 +250,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
                   if (success && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gửi báo cáo thành công!")));
-                    Navigator.pop(context); // Quay về bản đồ
+                    Navigator.pop(context);
                   }
                 },
                 child: reportProvider.isLoading
