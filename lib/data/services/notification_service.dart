@@ -27,7 +27,8 @@ class NotificationService {
     );
 
     await _flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
+      // SỬA LỖI Ở ĐÂY: Thêm định danh 'settings:'
+      settings: initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         // Xử lý khi người dùng bấm vào thông báo (Ví dụ: mở màn hình chi tiết)
         print("User clicked notification: ${response.payload}");
@@ -65,10 +66,11 @@ class NotificationService {
     NotificationDetails(android: androidPlatformChannelSpecifics);
 
     await _flutterLocalNotificationsPlugin.show(
-      id,
-      title,
-      body,
-      platformChannelSpecifics,
+      // SỬA LỖI Ở ĐÂY: Chuyển toàn bộ thành tham số có tên (named parameters)
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: platformChannelSpecifics,
       payload: payload,
     );
   }

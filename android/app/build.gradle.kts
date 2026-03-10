@@ -47,5 +47,5 @@ flutter {
 // add dependencies
 dependencies {
     // Thư viện desugar dùng cú pháp ngoặc tròn (...) thay vì dấu cách
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

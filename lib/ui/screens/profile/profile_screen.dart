@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../providers/profile_provider.dart';
 import 'edit_profile_screen.dart';
 import 'saved_locations_screen.dart';
+import '../checklist_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -117,6 +118,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const SavedLocationsScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildMenuOption(
+                  icon: Icons.fact_check_outlined,
+                  title: "Checklist chuẩn bị ứng phó",
+                  subtitle: "Danh sách các việc cần làm, vật dụng cần thiết khi có lũ",
+                  iconColor: Colors.orange, // Dùng màu cam/vàng để nhấn mạnh cảnh báo
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ChecklistScreen(),
                       ),
                     );
                   },
