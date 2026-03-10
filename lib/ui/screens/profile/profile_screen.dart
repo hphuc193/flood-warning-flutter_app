@@ -6,6 +6,7 @@ import '../../../providers/profile_provider.dart';
 import 'edit_profile_screen.dart';
 import 'saved_locations_screen.dart';
 import '../checklist_screen.dart';
+import '../evacuation_guide_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -133,6 +134,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const ChecklistScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildMenuOption(
+                  icon: Icons.directions_run_rounded,
+                  title: "Hướng dẫn sơ tán an toàn",
+                  subtitle: "Các bước di chuyển và quy tắc an toàn khi có bão lũ",
+                  iconColor: Colors.teal, // Dùng màu xanh mòng két (teal) tạo cảm giác an toàn, hy vọng
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const EvacuationGuideScreen(),
                       ),
                     );
                   },

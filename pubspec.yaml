@@ -70,6 +70,7 @@ dependencies:
   fl_chart: 0.68.0
   flutter_dotenv: ^6.0.0
   connectivity_plus: ^7.0.0
+  url_launcher: ^6.3.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
