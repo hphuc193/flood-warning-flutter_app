@@ -28,6 +28,35 @@ class WeatherMainScreen extends StatelessWidget {
     return [const Color(0xFF5B9BD5), const Color(0xFF2C5F8A)];
   }
 
+  Widget _buildWeatherIcon(String iconUrl, double size) {
+    final isSunny = iconUrl.contains('01d') || iconUrl.contains('01n');
+
+    if (isSunny) {
+      return Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        child: Icon(
+          Icons.wb_sunny_rounded,
+          color: const Color(0xFFFF9500),
+          size: size * 0.75,
+        ),
+      );
+    }
+
+    return Image.network(
+      iconUrl,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      errorBuilder: (c, e, s) => Icon(
+        Icons.wb_cloudy_rounded,
+        size: size * 0.6,
+        color: Colors.white70,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final groupedData = forecastData.groupDataByDate();
@@ -254,17 +283,7 @@ class WeatherMainScreen extends StatelessWidget {
                                       ],
                                     ),
                                     child: ClipOval(
-                                      child: Image.network(
-                                        representativeItem.iconUrl,
-                                        width: 64,
-                                        height: 64,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (c, e, s) => const Icon(
-                                          Icons.wb_cloudy_rounded,
-                                          size: 36,
-                                          color: Colors.white70,
-                                        ),
-                                      ),
+                                      child: _buildWeatherIcon(representativeItem.iconUrl, 64),
                                     ),
                                   ),
                                   const SizedBox(width: 14),

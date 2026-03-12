@@ -390,7 +390,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
           // ── 4. LEGEND ────────────────────────────────
           Positioned(
-            bottom: 80, // Đẩy legend lên trên Badge
+            bottom: 160, // Đẩy legend lên trên Badge
             left: 16,
             child: FadeTransition(
               opacity: _legendAnim,

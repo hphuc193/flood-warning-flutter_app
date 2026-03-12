@@ -184,12 +184,7 @@ class _HeroSummaryCard extends StatelessWidget {
                   color: Colors.white.withOpacity(0.15),
                 ),
                 child: ClipOval(
-                  child: Image.network(
-                    representativeItem.iconUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.wb_cloudy_rounded, color: Colors.white70, size: 40),
-                  ),
+                  child: _buildWeatherIcon(representativeItem.iconUrl, 72),
                 ),
               ),
               const SizedBox(width: 16),
@@ -361,9 +356,7 @@ class _IconTimelineRow extends StatelessWidget {
                       fontWeight: isNoon ? FontWeight.bold : FontWeight.normal,
                     )),
                 const SizedBox(height: 4),
-                Image.network(item.iconUrl, width: 40, height: 40,
-                    errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.wb_cloudy_outlined, color: Colors.white54, size: 32)),
+                _buildWeatherIcon(item.iconUrl, 40),
                 const SizedBox(height: 2),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -799,4 +792,32 @@ class _VisibilityHorizontalBars extends StatelessWidget {
       }),
     );
   }
+}
+
+Widget _buildWeatherIcon(String iconUrl, double size) {
+  final isSunny = iconUrl.contains('01d') || iconUrl.contains('01n');
+
+  if (isSunny) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Icon(
+        Icons.wb_sunny_rounded,
+        color: const Color(0xFFFF9500),
+        size: size * 0.75,
+      ),
+    );
+  }
+
+  return Image.network(
+    iconUrl,
+    width: size,
+    height: size,
+    fit: BoxFit.cover,
+    errorBuilder: (_, __, ___) => Icon(
+      Icons.wb_cloudy_rounded,
+      size: size * 0.6,
+      color: Colors.white70,
+    ),
+  );
 }
