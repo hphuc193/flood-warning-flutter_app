@@ -266,8 +266,6 @@ class _WeatherLocationListScreenState extends State<WeatherLocationListScreen>
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 14),
-
                           if (savedLocs.isEmpty)
                             const _EmptyState()
                           else
@@ -336,28 +334,28 @@ class _WeatherLocationListScreenState extends State<WeatherLocationListScreen>
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+          padding: const EdgeInsets.fromLTRB(8, 12, 16, 14),
           child: Row(
             children: [
               // Back button
-              GestureDetector(
-                onTap: () => Navigator.maybePop(context),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: Colors.white.withOpacity(0.12), width: 1),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 16,
-                    color: Colors.white70,
-                  ),
-                ),
-              ),
+              // GestureDetector(
+              //   onTap: () => Navigator.maybePop(context),
+              //   child: Container(
+              //     width: 40,
+              //     height: 40,
+              //     decoration: BoxDecoration(
+              //       color: Colors.white.withOpacity(0.08),
+              //       borderRadius: BorderRadius.circular(12),
+              //       border: Border.all(
+              //           color: Colors.white.withOpacity(0.12), width: 1),
+              //     ),
+              //     child: const Icon(
+              //       Icons.arrow_back_ios_new_rounded,
+              //       size: 16,
+              //       color: Colors.white70,
+              //     ),
+              //   ),
+              // ),
               const SizedBox(width: 14),
               const Expanded(
                 child: Column(

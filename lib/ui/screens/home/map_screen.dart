@@ -88,14 +88,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     if (mounted) setState(() => _isLoadingSuggestions = true);
 
     try {
-      // 1. SỬA LỖI Ở ĐÂY: Trả lại lang=en vì Photon không hỗ trợ lang=vi
       final url = "https://photon.komoot.io/api/?q=$query&limit=5&lang=en";
 
       final response = await Dio().get(
         url,
         cancelToken: _cancelToken,
         options: Options(headers: {
-          // 2. SỬA Ở ĐÂY: Dùng lại đúng User-Agent đã hoạt động tốt
           'User-Agent': 'FloodWarningMobileApp/1.0',
           'Accept': 'application/json'
         }),
@@ -111,7 +109,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       if (e is DioException && CancelToken.isCancel(e)) {
         // Ignored
       } else {
-        print("❌ Lỗi tìm kiếm Photon: $e"); // In ra log để dễ kiểm soát
+        print("❌ Lỗi tìm kiếm Photon: $e");
         if (mounted) setState(() => _isLoadingSuggestions = false);
       }
     }
@@ -177,7 +175,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     }
   }
 
-  // MỚI: HÀM MỞ POPUP THỜI TIẾT
   void _showWeatherDialog() {
     final weatherProvider = Provider.of<WeatherProvider>(context, listen: false);
     if (weatherProvider.currentWeather == null) {
@@ -191,7 +188,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         backgroundColor: Colors.transparent,
         elevation: 0,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Wrap( // Dùng Wrap để dialog tự động ôm sát nội dung của Thẻ thời tiết
+        child: Wrap(
           children: [
             WeatherInfoCard(weather: weatherProvider.currentWeather!),
           ],
@@ -236,6 +233,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final reportProvider = Provider.of<ReportProvider>(context);
+    // ✅ Lấy chiều cao thực của màn hình (bao gồm cả status bar)
+    final double screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -243,58 +242,65 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       body: Stack(
         children: [
           // ── 1. MAP ──────────────────────────────────
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: const LatLng(10.762622, 106.660172),
-              initialZoom: 13.0,
-              onPositionChanged: (position, hasGesture) {
-                if (hasGesture && position.center != null) {
-                  FocusScope.of(context).unfocus();
-                  if (_suggestions.isNotEmpty) {
-                    setState(() => _suggestions = []);
+          // ✅ Bọc trong SizedBox để map luôn chiếm đúng 100% chiều cao màn hình
+          SizedBox(
+            width: double.infinity,
+            height: screenHeight,
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: const LatLng(10.762622, 106.660172),
+                initialZoom: 13.0,
+                // ✅ Giới hạn zoom tối thiểu để tránh khoảng trắng xung quanh bản đồ
+                minZoom: 3.0,
+                onPositionChanged: (position, hasGesture) {
+                  if (hasGesture && position.center != null) {
+                    FocusScope.of(context).unfocus();
+                    if (_suggestions.isNotEmpty) {
+                      setState(() => _suggestions = []);
+                    }
                   }
-                }
-              },
-              onTap: (_, __) {
-                FocusScope.of(context).unfocus();
-                setState(() => _suggestions = []);
-              },
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: _currentMapUrl,
-                userAgentPackageName: 'vn.edu.umt.floodwarning',
+                },
+                onTap: (_, __) {
+                  FocusScope.of(context).unfocus();
+                  setState(() => _suggestions = []);
+                },
               ),
-              MarkerLayer(
-                markers: [
-                  ...reportProvider.reports.map((report) {
-                    return Marker(
-                      point: LatLng(report.lat, report.long),
-                      width: 56, height: 64,
-                      child: GestureDetector(
-                        onTap: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (_) => ReportDetailModal(report: report),
-                          );
-                        },
-                        child: _FloodMarker(),
+              children: [
+                TileLayer(
+                  urlTemplate: _currentMapUrl,
+                  userAgentPackageName: 'vn.edu.umt.floodwarning',
+                ),
+                MarkerLayer(
+                  markers: [
+                    ...reportProvider.reports.map((report) {
+                      return Marker(
+                        point: LatLng(report.lat, report.long),
+                        width: 56, height: 64,
+                        child: GestureDetector(
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => ReportDetailModal(report: report),
+                            );
+                          },
+                          child: _FloodMarker(),
+                        ),
+                      );
+                    }),
+                    if (_userLocation != null)
+                      Marker(
+                        point: _userLocation!,
+                        width: 22, height: 22,
+                        child: _UserLocationDot(),
                       ),
-                    );
-                  }),
-                  if (_userLocation != null)
-                    Marker(
-                      point: _userLocation!,
-                      width: 22, height: 22,
-                      child: _UserLocationDot(),
-                    ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                ),
+              ],
+            ),
+          ), // ✅ Đóng SizedBox
 
           // ── 2. TOP BAR & SEARCH ──────────────
           SafeArea(
@@ -383,14 +389,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
           // ── 3. MAP NAME BADGE ────────────────────────
           Positioned(
-            bottom: 110, // Chuyển sang góc trái dưới cùng
+            bottom: 110,
             left: 16,
             child: _MapNameBadge(name: _currentMapName),
           ),
 
           // ── 4. LEGEND ────────────────────────────────
           Positioned(
-            bottom: 160, // Đẩy legend lên trên Badge
+            bottom: 160,
             left: 16,
             child: FadeTransition(
               opacity: _legendAnim,
@@ -409,12 +415,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Nút THỜI TIẾT MỚI
                 _FabButton(
                   heroTag: 'btn_weather',
                   icon: CupertinoIcons.cloud_sun_fill,
                   color: Colors.white,
-                  iconColor: const Color(0xFF5856D6), // Tím nhạt
+                  iconColor: const Color(0xFF5856D6),
                   onTap: _showWeatherDialog,
                   tooltip: 'Xem thời tiết',
                 ),
