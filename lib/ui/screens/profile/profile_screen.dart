@@ -9,6 +9,7 @@ import 'saved_locations_screen.dart';
 import '../checklist_screen.dart';
 import '../evacuation_guide_screen.dart';
 import '../emergency_contacts_screen.dart';
+import '../sos_setup_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -205,6 +206,18 @@ class _ProfileScreenState extends State<ProfileScreen>
                           _fadeRoute(const EmergencyContactsScreen()),
                         ),
                       ),
+                      _buildDivider(),
+                      _buildTile(
+                        icon: Icons.sos_rounded,
+                        title: "Cài đặt SOS khẩn cấp",
+                        subtitle: "Thiết lập lời nhắn mặc định khi gặp nạn",
+                        iconBg: const Color(0xFFFDF4FF),
+                        iconColor: Colors.red,
+                        onTap: () => Navigator.push(
+                          context,
+                          _fadeRoute(const SosSetupScreen()),
+                        ),
+                      ),
                     ]),
                   ),
 
@@ -291,8 +304,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             child: CircleAvatar(
                               radius: 36,
                               backgroundColor: _accentLight,
-                              backgroundImage: user.avatarUrl != null &&
-                                  user.avatarUrl!.isNotEmpty
+                              backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
                                   ? NetworkImage(user.avatarUrl!)
                                   : null,
                               child: user.avatarUrl == null ||

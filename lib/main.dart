@@ -1,6 +1,7 @@
 import 'package:flood_warning_mobile_v1/providers/location_provider.dart';
 import 'package:flood_warning_mobile_v1/providers/profile_provider.dart';
 import 'package:flood_warning_mobile_v1/providers/rainfall_provider.dart';
+import 'package:flood_warning_mobile_v1/providers/sos_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
@@ -43,6 +44,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChecklistProvider()),
         ChangeNotifierProvider(create: (_) => EvacuationProvider()),
         ChangeNotifierProvider(create: (_) => ContactProvider()),
+        ChangeNotifierProvider(create: (_) => SosProvider()),
       ],
       child: MaterialApp(
         title: 'Flood Warning System',

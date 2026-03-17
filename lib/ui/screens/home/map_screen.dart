@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
 import '../../../providers/report_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/sos_provider.dart';
 import '../../../providers/weather_provider.dart';
 import '../../widgets/report_detail_modal.dart';
 import '../../widgets/weather_info_card.dart';
@@ -28,8 +29,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // --- MAP STYLE LIST ---
   final List<Map<String, dynamic>> _mapStyles = [
-    {'name': 'Tiêu chuẩn', 'subtitle': 'OpenStreetMap', 'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', 'icon': CupertinoIcons.map, 'color': const Color(0xFF007AFF)},
-    {'name': 'Nhân đạo', 'subtitle': 'Cứu trợ thiên tai', 'url': 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', 'icon': CupertinoIcons.heart_fill, 'color': const Color(0xFFFF3B30)},
+    {'name': 'Tiêu chuẩn', 'subtitle': 'OpenStreetMap', 'url': 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', 'icon': CupertinoIcons.map, 'color': const Color(0xFF007AFF)},
+    {'name': 'Nhân đạo', 'subtitle': 'Cứu trợ thiên tai', 'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', 'icon': CupertinoIcons.heart_fill, 'color': const Color(0xFFFF3B30)},
     {'name': 'Địa hình', 'subtitle': 'OpenTopoMap', 'url': 'https://tile.opentopomap.org/{z}/{x}/{y}.png', 'icon': CupertinoIcons.waveform, 'color': const Color(0xFF34C759)},
     {'name': 'Vệ tinh', 'subtitle': 'Esri World Imagery', 'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'icon': CupertinoIcons.globe, 'color': const Color(0xFF5856D6)},
     {'name': 'Giao thông', 'subtitle': 'CartoCDN Voyager', 'url': 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', 'icon': CupertinoIcons.car_fill, 'color': const Color(0xFFFF9500)},
@@ -310,15 +311,39 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: CircleAvatar(
-                        backgroundColor: Colors.white,
-                        child: IconButton(
-                          icon: const Icon(Icons.logout, color: Colors.redAccent),
-                          onPressed: () {
-                            Provider.of<AuthProvider>(context, listen: false).logout();
-                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
-                          },
-                        ),
+                      child: Consumer<SosProvider>( // Bọc Consumer để lắng nghe trạng thái Loading
+                          builder: (context, sosProvider, child) {
+                            return GestureDetector(
+                              onTap: sosProvider.isLoading ? null : () {
+                                // 1. Gọi AuthProvider để lấy thông tin user đang đăng nhập hiện tại
+                                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+                                // 2. Rút trích ID thật (Giả định AuthProvider của bạn có biến currentUser)
+                                // Nếu vì lý do nào đó không lấy được (null), ta gán tạm '0' hoặc 'unknown' để chuỗi SMS không bị lỗi format
+                                String currentUserId = authProvider.user?.id.toString() ?? "0";
+
+                                // 3. Truyền ID thật vào hàm kích hoạt SOS
+                                sosProvider.triggerSOS(context, currentUserId, "FLOOD");
+                              },
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent, // Nút đỏ rực báo hiệu khẩn cấp
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)
+                                  ],
+                                ),
+                                child: sosProvider.isLoading
+                                    ? const Padding(
+                                  padding: EdgeInsets.all(12.0),
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                                    : const Icon(Icons.sos_rounded, color: Colors.white, size: 28, weight: 800),
+                              ),
+                            );
+                          }
                       ),
                     ),
                     Expanded(
