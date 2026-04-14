@@ -56,7 +56,8 @@ android/key.properties
 # File biến môi trường (Chứa API Key, Token bí mật)
 .env
 .env*
-
+#file chứa key bảo mật của Android
+android/app/src/main/res/values/secrets.xml
 # Cấu hình IDE cá nhân
 .idea/
 .vscode/

@@ -3,6 +3,7 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 class SocketService {
   static final SocketService _instance = SocketService._internal();
   late IO.Socket _socket;
+  IO.Socket get socket => _socket!;
 
   // URL Socket từ server của bạn
   // Lưu ý: Render dùng wss (secure) nên cần cấu hình đúng

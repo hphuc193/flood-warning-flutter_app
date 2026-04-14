@@ -8,6 +8,8 @@ class ReportRepository {
     required double lat,
     required double long,
     required String description,
+    required String category, // Thêm mới
+    required int severity,    // Thêm mới
     required List<String> imagePaths, // Danh sách đường dẫn file ảnh trong máy
   }) async {
     try {
@@ -16,6 +18,8 @@ class ReportRepository {
         'lat': lat,
         'long': long,
         'description': description,
+        'category': category,           // Gửi loại sự cố
+        'severity': severity.toString() // Phải chuyển sang String khi gài vào FormData
       });
 
       // 2. Duyệt qua danh sách ảnh và add vào FormData
@@ -40,6 +44,18 @@ class ReportRepository {
       return response.data['success'] == true;
     } on DioException catch (e) {
       throw e.response?.data['message'] ?? 'Lỗi khi gửi báo cáo';
+    }
+  }
+
+  Future<bool> voteReport(int reportId, String type) async {
+    try {
+      final response = await _apiService.dio.post(
+        '/reports/$reportId/vote',
+        data: {'type': type},
+      );
+      return response.data['success'] == true;
+    } on DioException catch (e) {
+      throw e.response?.data['message'] ?? 'Lỗi khi vote báo cáo';
     }
   }
 }

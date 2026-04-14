@@ -42,4 +42,19 @@ class AuthRepository {
       throw e;
     }
   }
+
+  Future<Map<String, dynamic>> loginWithFacebook(String idToken) async {
+    try {
+      final response = await _apiService.dio.post(
+        '/auth/facebook-login', // Trỏ đúng vào route BE bạn vừa viết
+        data: {
+          'token': idToken // BE yêu cầu lấy "token" từ req.body
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      // Bắt lỗi từ Backend trả về (Ví dụ: Lỗi 409 trùng Email)
+      throw e.response?.data['message'] ?? 'Lỗi kết nối Server khi đăng nhập Facebook';
+    }
+  }
 }

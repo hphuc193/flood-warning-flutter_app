@@ -5,6 +5,7 @@ import '../data/models/user_model.dart' as model;
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthRepository _authRepository = AuthRepository();
@@ -19,6 +20,63 @@ class AuthProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   model.User? get user => _user;
   bool get isAuthenticated => _token != null;
+
+  Future<bool> loginWithFacebook(BuildContext context) async {
+    _setLoading(true);
+
+    try {
+      // 1. Kích hoạt flow đăng nhập Facebook từ Native SDK
+      final LoginResult result = await FacebookAuth.instance.login(
+        permissions: ['public_profile', 'email'],
+      );
+
+      if (result.status == LoginStatus.success) {
+        // 2. Lấy Access Token từ Facebook
+        final AccessToken accessToken = result.accessToken!;
+
+        // 3. Đăng nhập vào Firebase Client
+        final OAuthCredential credential = FacebookAuthProvider.credential(accessToken.tokenString);
+        final UserCredential userCredential = await _firebaseAuth.signInWithCredential(credential);
+
+        // 4. LẤY ID TOKEN TỪ FIREBASE ĐỂ GỬI CHO BACKEND
+        final String? idToken = await userCredential.user?.getIdToken();
+
+        if (idToken != null) {
+          // 5. Gọi API lên Node.js
+          final response = await _authRepository.loginWithFacebook(idToken);
+
+          if (response['success'] == true) {
+            // 6. Bóc tách dữ liệu JSON Backend trả về
+            final Map<String, dynamic> responseData = response['data'];
+
+            _token = responseData['access_token'];
+            _user = model.User.fromJson(responseData['user']);
+
+            // Lưu vào storage máy điện thoại
+            await _saveUserToStorage(responseData['user'], _token!);
+
+            _setLoading(false);
+            return true; // Đăng nhập thành công hoàn toàn!
+          }
+        }
+
+        _setLoading(false);
+        return false;
+      } else {
+        print("Facebook Login bị hủy hoặc lỗi: ${result.message}");
+        _setLoading(false);
+        return false;
+      }
+    } catch (e) {
+      print("Lỗi login Facebook: $e");
+      if (context.mounted) {
+        // Cực kỳ quan trọng: Lỗi này sẽ lấy được dòng chữ "Email này đã được đăng ký bằng phương thức khác..." từ BE của bạn để báo cho User.
+        _showErrorDialog(context, e.toString());
+      }
+      _setLoading(false);
+      return false;
+    }
+  }
 
   Future<bool> loginWithGoogle(BuildContext context) async {
     _setLoading(true);
@@ -53,7 +111,6 @@ class AuthProvider with ChangeNotifier {
         final response = await _authRepository.loginWithGoogle(idToken);
 
         if (response['success'] == true) {
-          // --- ĐÃ SỬA LỖI PARSE JSON Ở ĐÂY ---
           // Chui vào lớp 'data' bên trong JSON trả về
           final Map<String, dynamic> responseData = response['data'];
 
@@ -61,7 +118,7 @@ class AuthProvider with ChangeNotifier {
           _token = responseData['access_token'];
           _user = model.User.fromJson(responseData['user']);
 
-          // Lưu vào storage (Lưu đúng biến user map và token vừa bóc tách)
+          // Lưu vào storage
           await _saveUserToStorage(responseData['user'], _token!);
 
           _setLoading(false);
@@ -78,6 +135,7 @@ class AuthProvider with ChangeNotifier {
     _setLoading(false);
     return false;
   }
+
   // Login Logic
   Future<bool> login(String email, String password, BuildContext context) async {
     _setLoading(true);
@@ -107,7 +165,6 @@ class AuthProvider with ChangeNotifier {
       final data = await _authRepository.register(email, password, fullName);
       if (data['success'] == true) {
         _setLoading(false);
-        // Có thể tự động login luôn hoặc yêu cầu user login lại
         return true;
       }
     } catch (e) {
@@ -169,7 +226,4 @@ class AuthProvider with ChangeNotifier {
     // Lưu thông tin user dưới dạng chuỗi JSON
     await _storage.write(key: 'auth_user', value: jsonEncode(userData));
   }
-
-
-
 }

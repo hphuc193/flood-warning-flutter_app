@@ -23,6 +23,19 @@ class _CreateReportScreenState extends State<CreateReportScreen>
   double? _longitude;
   bool _gettingLocation = true;
 
+  // ── Thêm State cho Danh mục và Mức độ ─────────────────────────
+  String? _selectedCategory;
+  double _severityLevel = 1.0; // 1 đến 5
+
+  final List<String> _incidentCategories = [
+    "Nước ngập đường",
+    "Nhà bị ngập",
+    "Cầu đường sạt lở",
+    "Cây đổ",
+    "Mất điện",
+    "Cần cứu trợ"
+  ];
+
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
 
@@ -102,6 +115,24 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     if (images.isNotEmpty) setState(() => _selectedImages.addAll(images));
   }
 
+  // Helper chuyển đổi màu theo mức độ nghiêm trọng
+  Color _getSeverityColor(double level) {
+    if (level == 1) return Colors.green;
+    if (level == 2) return Colors.lightBlue;
+    if (level == 3) return Colors.orangeAccent;
+    if (level == 4) return Colors.deepOrange;
+    return Colors.red;
+  }
+
+  // Helper chuyển đổi text theo mức độ nghiêm trọng
+  String _getSeverityLabel(double level) {
+    if (level == 1) return "Thấp";
+    if (level == 2) return "Vừa phải";
+    if (level == 3) return "Nghiêm trọng";
+    if (level == 4) return "Rất nghiêm trọng";
+    return "Khẩn cấp";
+  }
+
   // ── Build ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -117,9 +148,21 @@ class _CreateReportScreenState extends State<CreateReportScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _sectionLabel("📍 Vị trí điểm ngập"),
+              _sectionLabel("📍 Vị trí sự cố"),
               const SizedBox(height: 10),
               _buildLocationCard(),
+              const SizedBox(height: 24),
+
+              // ── BỔ SUNG: CHỌN DANH MỤC SỰ CỐ ──────────
+              _sectionLabel("Loại sự cố"),
+              const SizedBox(height: 10),
+              _buildCategorySelection(),
+              const SizedBox(height: 24),
+
+              // ── BỔ SUNG: KÉO MỨC ĐỘ NGHIÊM TRỌNG ──────────
+              _sectionLabel("Mức độ nghiêm trọng"),
+              const SizedBox(height: 10),
+              _buildSeveritySlider(),
               const SizedBox(height: 24),
 
               _sectionLabel("Mô tả tình trạng"),
@@ -151,7 +194,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
       onPressed: () => Navigator.pop(context),
     ),
     title: const Text(
-      "Báo cáo điểm ngập",
+      "Gửi báo cáo",
       style: TextStyle(
         color: _textPrimary, fontSize: 18,
         fontWeight: FontWeight.w700, letterSpacing: -0.3,
@@ -175,6 +218,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
 
   // ── Card container helper ──────────────────────────────────────
   Widget _card({required Widget child}) => Container(
+    width: double.infinity,
     decoration: BoxDecoration(
       color: _surface,
       borderRadius: BorderRadius.circular(16),
@@ -189,6 +233,117 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     ),
     child: child,
   );
+
+  // ── UI MỚI: Danh mục sự cố ────────────────────────────────────
+  Widget _buildCategorySelection() => _card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 12,
+        children: _incidentCategories.map((cat) {
+          final isSelected = _selectedCategory == cat;
+          return ChoiceChip(
+            label: Text(cat),
+            selected: isSelected,
+            showCheckmark: false,
+            onSelected: (selected) {
+              setState(() {
+                _selectedCategory = selected ? cat : null;
+              });
+            },
+            backgroundColor: _bg,
+            selectedColor: _primaryLight,
+            labelStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? _primary : _textSecondary,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(
+                color: isSelected ? _primary : _border,
+                width: isSelected ? 1.5 : 1.0,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    ),
+  );
+
+  // ── UI MỚI: Kéo thanh mức độ nghiêm trọng ──────────────────────
+  Widget _buildSeveritySlider() {
+    final activeColor = _getSeverityColor(_severityLevel);
+
+    return _card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.warning_rounded, color: activeColor, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      _getSeverityLabel(_severityLevel),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: activeColor,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  "${_severityLevel.toInt()}/5",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: activeColor,
+                inactiveTrackColor: _border,
+                thumbColor: activeColor,
+                overlayColor: activeColor.withOpacity(0.2),
+                trackHeight: 6,
+              ),
+              child: Slider(
+                value: _severityLevel,
+                min: 1,
+                max: 5,
+                divisions: 4,
+                onChanged: (val) {
+                  setState(() {
+                    _severityLevel = val;
+                  });
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [
+                  Text("Nhẹ", style: TextStyle(fontSize: 11, color: _textSecondary)),
+                  Text("Nặng", style: TextStyle(fontSize: 11, color: _textSecondary)),
+                ],
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
 
   // ── Location Card ──────────────────────────────────────────────
   Widget _buildLocationCard() => _card(
@@ -290,7 +445,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
       maxLines: 4,
       style: const TextStyle(fontSize: 14, color: _textPrimary, height: 1.55),
       decoration: InputDecoration(
-        hintText: "Mô tả tình trạng ngập... (vd: Ngập sâu 0.5m, xe máy không đi được)",
+        hintText: "Nhập thêm thông tin chi tiết (nếu có)...",
         hintStyle: const TextStyle(color: _textSecondary, fontSize: 13, height: 1.5),
         contentPadding: const EdgeInsets.all(16),
         border: InputBorder.none,
@@ -390,13 +545,25 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     final bool disabled = reportProvider.isLoading || _latitude == null;
     return GestureDetector(
       onTap: disabled ? null : () async {
-        if (_descController.text.isEmpty) {
-          _snack("Vui lòng nhập mô tả tình trạng ngập"); return;
+        // UI Validation
+        if (_selectedCategory == null) {
+          _snack("Vui lòng chọn loại sự cố"); return;
         }
+        if (_descController.text.isEmpty) {
+          _snack("Vui lòng nhập mô tả tình trạng"); return;
+        }
+
+        // GỌI HÀM VỚI ĐẦY ĐỦ THAM SỐ MỚI
         bool success = await reportProvider.createReport(
-          _latitude!, _longitude!, _descController.text,
-          _selectedImages.map((e) => e.path).toList(), context,
+          _latitude!,
+          _longitude!,
+          _descController.text,
+          _selectedCategory!,         // Truyền danh mục đã chọn
+          _severityLevel.toInt(),     // Ép slider (double) sang int (1-5)
+          _selectedImages.map((e) => e.path).toList(),
+          context,
         );
+
         if (success && context.mounted) {
           _snack("Gửi báo cáo thành công! 🎉");
           Navigator.pop(context);

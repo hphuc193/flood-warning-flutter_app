@@ -234,7 +234,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final reportProvider = Provider.of<ReportProvider>(context);
-    // ✅ Lấy chiều cao thực của màn hình (bao gồm cả status bar)
     final double screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
@@ -243,7 +242,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       body: Stack(
         children: [
           // ── 1. MAP ──────────────────────────────────
-          // ✅ Bọc trong SizedBox để map luôn chiếm đúng 100% chiều cao màn hình
           SizedBox(
             width: double.infinity,
             height: screenHeight,
@@ -252,7 +250,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               options: MapOptions(
                 initialCenter: const LatLng(10.762622, 106.660172),
                 initialZoom: 13.0,
-                // ✅ Giới hạn zoom tối thiểu để tránh khoảng trắng xung quanh bản đồ
                 minZoom: 3.0,
                 onPositionChanged: (position, hasGesture) {
                   if (hasGesture && position.center != null) {
@@ -287,7 +284,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                               builder: (_) => ReportDetailModal(report: report),
                             );
                           },
-                          child: _FloodMarker(),
+                          // === TRUYỀN THÊM STATUS VÀO MARKER ===
+                          child: _FloodMarker(status: report.status),
                         ),
                       );
                     }),
@@ -301,7 +299,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ),
               ],
             ),
-          ), // ✅ Đóng SizedBox
+          ),
 
           // ── 2. TOP BAR & SEARCH ──────────────
           SafeArea(
@@ -311,28 +309,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Consumer<SosProvider>( // Bọc Consumer để lắng nghe trạng thái Loading
+                      child: Consumer<SosProvider>(
                           builder: (context, sosProvider, child) {
                             return GestureDetector(
                               onTap: sosProvider.isLoading ? null : () {
-                                // 1. Gọi AuthProvider để lấy thông tin user đang đăng nhập hiện tại
                                 final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-                                // 2. Rút trích ID thật (Giả định AuthProvider của bạn có biến currentUser)
-                                // Nếu vì lý do nào đó không lấy được (null), ta gán tạm '0' hoặc 'unknown' để chuỗi SMS không bị lỗi format
                                 String currentUserId = authProvider.user?.id.toString() ?? "0";
-
-                                // 3. Truyền ID thật vào hàm kích hoạt SOS
                                 sosProvider.triggerSOS(context, currentUserId, "FLOOD");
                               },
                               child: Container(
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: Colors.redAccent, // Nút đỏ rực báo hiệu khẩn cấp
+                                  color: Colors.redAccent,
                                   shape: BoxShape.circle,
                                   boxShadow: [
-                                    BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)
+                                    BoxShadow(color: Colors.red.withValues(alpha: 0.5), blurRadius: 15, spreadRadius: 2)
                                   ],
                                 ),
                                 child: sosProvider.isLoading
@@ -489,12 +481,32 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 }
 
 // ============================================================
-// CÁC COMPONENT PHỤ TRỢ (GIỮ NGUYÊN)
+// CÁC COMPONENT PHỤ TRỢ
 // ============================================================
 
 class _FloodMarker extends StatelessWidget {
+  final String status;
+
+  // === KHAI BÁO BIẾN STATUS ===
+  const _FloodMarker({required this.status});
+
+  // === HÀM LẤY MÀU THEO TRẠNG THÁI ===
+  Color _getStatusColor() {
+    switch (status) {
+      case 'verified':
+        return const Color(0xFF059669); // Xanh lá cây (Đã duyệt)
+      case 'rejected':
+        return const Color(0xFFDC2626); // Đỏ (Từ chối)
+      case 'pending':
+      default:
+        return const Color(0xFFD97706); // Vàng cam (Chờ duyệt)
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final markerColor = _getStatusColor();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -502,9 +514,18 @@ class _FloodMarker extends StatelessWidget {
           width: 40, height: 40,
           decoration: BoxDecoration(
             color: Colors.white, shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: const Color(0xFFFF3B30).withOpacity(0.35), blurRadius: 10, spreadRadius: 3, offset: const Offset(0, 3))],
+            boxShadow: [
+              // CẬP NHẬT MÀU BÓNG CỦA MARKER THEO STATUS
+              BoxShadow(
+                  color: markerColor.withValues(alpha: 0.45),
+                  blurRadius: 10,
+                  spreadRadius: 3,
+                  offset: const Offset(0, 3)
+              )
+            ],
           ),
-          child: const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: Color(0xFFFF3B30), size: 22),
+          // CẬP NHẬT MÀU ICON THEO STATUS
+          child: Icon(CupertinoIcons.exclamationmark_triangle_fill, color: markerColor, size: 22),
         ),
         ClipPath(
           clipper: _TriangleClipper(),
@@ -521,13 +542,13 @@ class _UserLocationDot extends StatelessWidget {
     return Stack(
       alignment: Alignment.center,
       children: [
-        Container(width: 22, height: 22, decoration: BoxDecoration(color: const Color(0xFF007AFF).withOpacity(0.2), shape: BoxShape.circle)),
+        Container(width: 22, height: 22, decoration: BoxDecoration(color: const Color(0xFF007AFF).withValues(alpha: 0.2), shape: BoxShape.circle)),
         Container(
           width: 14, height: 14,
           decoration: BoxDecoration(
             color: const Color(0xFF007AFF), shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2.5),
-            boxShadow: [BoxShadow(color: const Color(0xFF007AFF).withOpacity(0.5), blurRadius: 8, spreadRadius: 2)],
+            boxShadow: [BoxShadow(color: const Color(0xFF007AFF).withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 2)],
           ),
         ),
       ],
@@ -542,7 +563,7 @@ class _MapNameBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(color: Colors.black.withOpacity(0.55), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -555,6 +576,7 @@ class _MapNameBadge extends StatelessWidget {
   }
 }
 
+// === CẬP NHẬT LEGEND CARD CHO ĐỦ 3 TRẠNG THÁI ===
 class _LegendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -562,7 +584,7 @@ class _LegendCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 16, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 16, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -570,9 +592,13 @@ class _LegendCard extends StatelessWidget {
         children: [
           const Text('Chú thích bản đồ', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF1C1C1E))),
           const SizedBox(height: 10),
-          _LegendItem(icon: CupertinoIcons.exclamationmark_triangle_fill, color: const Color(0xFFFF3B30), label: 'Điểm ngập lụt', sublabel: 'Báo cáo từ cộng đồng'),
+          _LegendItem(icon: CupertinoIcons.exclamationmark_triangle_fill, color: const Color(0xFF059669), label: 'Đã xác minh', sublabel: 'Thông tin tin cậy'),
           const SizedBox(height: 8),
-          _LegendItem(icon: CupertinoIcons.location_fill, color: const Color(0xFF007AFF), label: 'Vị trí của bạn', sublabel: 'Định vị GPS thời gian thực'),
+          _LegendItem(icon: CupertinoIcons.exclamationmark_triangle_fill, color: const Color(0xFFD97706), label: 'Chờ duyệt', sublabel: 'Mới được gửi lên'),
+          const SizedBox(height: 8),
+          _LegendItem(icon: CupertinoIcons.exclamationmark_triangle_fill, color: const Color(0xFFDC2626), label: 'Bị từ chối', sublabel: 'Báo cáo không đúng'),
+          const SizedBox(height: 8),
+          _LegendItem(icon: CupertinoIcons.location_fill, color: const Color(0xFF007AFF), label: 'Vị trí của bạn', sublabel: 'Định vị GPS'),
         ],
       ),
     );
@@ -589,7 +615,7 @@ class _LegendItem extends StatelessWidget {
       children: [
         Container(
           width: 32, height: 32,
-          decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
           child: Icon(icon, color: color, size: 17),
         ),
         const SizedBox(width: 10),
@@ -618,7 +644,7 @@ class _FabButton extends StatelessWidget {
           width: 50, height: 50,
           decoration: BoxDecoration(
             color: color, borderRadius: BorderRadius.circular(14),
-            boxShadow: [BoxShadow(color: color == Colors.white ? Colors.black.withOpacity(0.15) : color.withOpacity(0.4), blurRadius: 14, offset: const Offset(0, 4))],
+            boxShadow: [BoxShadow(color: color == Colors.white ? Colors.black.withValues(alpha: 0.15) : color.withValues(alpha: 0.4), blurRadius: 14, offset: const Offset(0, 4))],
           ),
           child: Icon(icon, color: iconColor, size: 22),
         ),
@@ -657,17 +683,17 @@ class _MapStyleSheet extends StatelessWidget {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       decoration: BoxDecoration(
-                        color: isSelected ? color.withOpacity(0.12) : Colors.white,
+                        color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: isSelected ? color : Colors.transparent, width: 2),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 8, offset: const Offset(0, 2))],
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 8, offset: const Offset(0, 2))],
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
                             width: 44, height: 44,
-                            decoration: BoxDecoration(color: color.withOpacity(0.13), borderRadius: BorderRadius.circular(12)),
+                            decoration: BoxDecoration(color: color.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(12)),
                             child: Icon(style['icon'] as IconData, color: color, size: 22),
                           ),
                           const SizedBox(height: 8),

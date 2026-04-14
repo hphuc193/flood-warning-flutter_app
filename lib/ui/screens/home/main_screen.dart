@@ -10,6 +10,8 @@ import 'create_report_screen.dart';
 import '../profile/profile_screen.dart';
 import '../weather/weather_main_screen.dart';
 import '../weather/weather_location_list_screen.dart';
+import 'dashboard_screen.dart';
+import '../../../data/services/notification_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,15 +21,17 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
+  final NotificationService _notificationService = NotificationService();
   int _selectedIndex = 0;
   late AnimationController _fabAnimController;
   late Animation<double> _fabScaleAnim;
 
+  // ĐÃ SỬA LẠI THỨ TỰ CHO KHỚP VỚI THANH ĐIỀU HƯỚNG BÊN DƯỚI
   late final List<Widget> _pages = [
-    const MapScreen(),
-    const ReportListScreen(),
-    const WeatherLocationListScreen(),
-    const ProfileScreen(),
+    const DashboardScreen(),    // Index 0: Tổng Quan
+    const MapScreen(),          // Index 1: Bản đồ
+    const ReportListScreen(),   // Index 2: Tin tức (Danh sách báo cáo)
+    const ProfileScreen(),      // Index 3: Hồ sơ
   ];
 
   @override
@@ -53,6 +57,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       weatherProvider.fetchWeather(10.7626, 106.6602);
       weatherProvider.fetchForecast(10.7626, 106.6602,
           cityName: "Hồ Chí Minh");
+    });
+
+    // Gọi hàm đồng bộ dữ liệu thiết bị ngầm ở background
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notificationService.updateDeviceTokenAndLocation();
     });
   }
 
@@ -157,14 +166,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(28),
         child: Row(
           children: [
-            _navItem(0, Icons.map_rounded, Icons.map_outlined, 'Bản đồ'),
-            _navItem(
-                1, Icons.article_rounded, Icons.article_outlined, 'Tin tức'),
-            // Center gap for FAB
-            const SizedBox(width: 72),
-            _navItem(2, Icons.cloud_rounded, Icons.cloud_outlined, 'Dự báo'),
-            _navItem(
-                3, Icons.person_rounded, Icons.person_outline_rounded, 'Cá nhân'),
+            // CÁC INDEX NÀY ĐÃ ĐƯỢC MAP ĐÚNG VỚI MẢNG _PAGES PHÍA TRÊN
+            _navItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Tổng Quan'),
+            _navItem(1, Icons.map_rounded, Icons.map_outlined, 'Bản đồ'),
+            const SizedBox(width: 72), // Chỗ trống cho FAB
+            _navItem(2, Icons.article_rounded, Icons.article_outlined, 'Tin tức'),
+            _navItem(3, Icons.person_rounded, Icons.person_outline_rounded, 'Hồ sơ'),
           ],
         ),
       ),

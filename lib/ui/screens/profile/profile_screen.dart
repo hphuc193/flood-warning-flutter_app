@@ -10,7 +10,7 @@ import '../checklist_screen.dart';
 import '../evacuation_guide_screen.dart';
 import '../emergency_contacts_screen.dart';
 import '../sos_setup_screen.dart';
-
+import '../../../providers/auth_provider.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -90,35 +90,70 @@ class _ProfileScreenState extends State<ProfileScreen>
             );
           }
 
+          // ─── ĐÃ FIX LỖI "NHỐT" USER KHI TOKEN HẾT HẠN ─────────────────────
           if (profileProvider.profile == null) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: _surfaceSecondary,
-                      borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: _surfaceSecondary,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.person_off_outlined,
+                        size: 32,
+                        color: _textTertiary,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.person_off_outlined,
-                      size: 32,
-                      color: _textTertiary,
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Không thể tải thông tin cá nhân.\nPhiên đăng nhập có thể đã hết hạn.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: _textSecondary, fontSize: 14, height: 1.5),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Không thể tải thông tin cá nhân.",
-                    style: TextStyle(color: _textSecondary, fontSize: 14),
-                  ),
-                  const SizedBox(height: 20),
-                  _PrimaryButton(
-                    label: "Thử lại",
-                    onTap: () => profileProvider.fetchProfile(),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _PrimaryButton(
+                            label: "Thử lại",
+                            onTap: () => profileProvider.fetchProfile(),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Thêm nút Đăng xuất ngay tại màn hình báo lỗi
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _showLogoutConfirm(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF1F2),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFFECDD3)),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Text(
+                                "Đăng xuất",
+                                style: TextStyle(
+                                  color: Color(0xFFE11D48),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -233,10 +268,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                   // ── Version label ─────────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 20, bottom: 48),
+                      padding: const EdgeInsets.only(top: 20, bottom: 140),
                       child: Center(
                         child: Text(
-                          "Flood Alert • v1.0.0",
+                          "FWS • v1.0.0",
                           style: TextStyle(
                             fontSize: 11,
                             color: _textTertiary,
@@ -601,8 +636,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                     Expanded(
                       child: GestureDetector(
                         onTap: () async {
+                          // 1. Đóng dialog xác nhận
                           Navigator.pop(ctx);
 
+                          // 2. Hiện dialog Loading mờ
                           showDialog(
                             context: context,
                             barrierDismissible: false,
@@ -615,12 +652,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                           );
 
                           try {
-                            final prefs =
-                            await SharedPreferences.getInstance();
-                            await prefs.clear();
+                            // 3. GỌI HÀM LOGOUT CHUẨN TỪ AUTH PROVIDER
+                            // Hàm này sẽ xóa sạch biến trong RAM và xóa SharedPreferences
+                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                            await authProvider.logout();
 
+                            // 4. Kiểm tra context và chuyển hướng
                             if (context.mounted) {
-                              Navigator.pop(context);
+                              Navigator.pop(context); // Đóng Loading
+
+                              // Xóa toàn bộ lịch sử màn hình và đẩy về Login
                               Navigator.pushAndRemoveUntil(
                                 context,
                                 MaterialPageRoute(
@@ -631,11 +672,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                             }
                           } catch (e) {
                             if (context.mounted) {
-                              Navigator.pop(context);
+                              Navigator.pop(context); // Đóng Loading
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text("Lỗi đăng xuất: $e"),
-                                  backgroundColor: _surfaceSecondary,
+                                  backgroundColor: Colors.redAccent,
                                 ),
                               );
                             }
