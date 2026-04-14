@@ -64,11 +64,19 @@ lib/
 │   ├── repositories/
 │   └── services/
 ├── providers/
-├── screens/
-│   ├── auth/
-│   ├── home/
-│   └── profile/
-├── utils/
+├── ui/
+│   ├── screens/
+│   │   ├── alert/
+│   │   ├── auth/
+│   │   ├── home/
+│   │   ├── profile/
+│   │   ├── weather/
+│   │   ├── checklist_screen.dart
+│   │   ├── emergency_contacts_screen.dart
+│   │   ├── evacuation_guide_screen.dart
+│   │   ├── sos_setup_screen.dart
+│   │   └── splash_screen.dart
+│   └── widgets/
 └── main.dart
 ```
 
@@ -78,13 +86,18 @@ Layer details:
 * `data/repositories/`: API communication logic (AuthRepo, WeatherRepo, etc.).
 * `data/services/`: Core API configuration (Dio), Notification, and Location services.
 * `providers/`: App-wide State Management.
-* `screens/auth/`: Login and registration screens.
-* `screens/home/`: Dashboard, map, and community report screens.
-* `screens/profile/`: Profile management, Checklist, SOS, and emergency contacts.
-* `utils/`: Shared utility functions (date formatting, colors, etc.).
+* `ui/screens/alert/`: Alert and flood warning screens.
+* `ui/screens/auth/`: Login and registration screens.
+* `ui/screens/home/`: Dashboard and community report screens.
+* `ui/screens/profile/`: Profile management screens.
+* `ui/screens/weather/`: Weather detail and heatmap screens.
+* `ui/screens/checklist_screen.dart`: Storm preparedness checklist.
+* `ui/screens/emergency_contacts_screen.dart`: Emergency contacts directory.
+* `ui/screens/evacuation_guide_screen.dart`: Safe evacuation guidelines.
+* `ui/screens/sos_setup_screen.dart`: SOS message setup and activation.
+* `ui/screens/splash_screen.dart`: App splash/loading screen.
+* `ui/widgets/`: Shared reusable UI components.
 * `main.dart`: Application entry point.
-
----
 
 ## 🚀 Getting Started
 
