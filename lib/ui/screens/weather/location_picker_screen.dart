@@ -31,8 +31,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     super.dispose();
   }
 
-  // --- HÀM TÌM KIẾM ĐÃ SỬA LỖI LOGIC ---
-  // --- HÀM TÌM KIẾM ĐÃ SỬA LỖI 403 ---
   Future<void> _fetchSuggestions(String query) async {
     if (query.isEmpty) {
       if (mounted) {
@@ -53,13 +51,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       final url = "https://photon.komoot.io/api/?q=$query&limit=5&lang=en";
       print("🔍 Đang tìm (Photon): $query");
 
-      // ĐÃ SỬA: Thêm User-Agent vào cấu hình Options của Dio
       final response = await Dio().get(
         url,
         cancelToken: _cancelToken,
         options: Options(
           headers: {
-            // Định danh rõ ràng để server Photon không chặn (bắt buộc)
             'User-Agent': 'FloodWarningMobileApp/1.0',
             'Accept': 'application/json',
           },

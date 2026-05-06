@@ -14,7 +14,7 @@ class ProfileProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // 1. Lấy thông tin profile (Giữ nguyên)
+  // 1. Lấy thông tin profile
   Future<void> fetchProfile() async {
     _isLoading = true;
     _errorMessage = null;
@@ -30,7 +30,7 @@ class ProfileProvider with ChangeNotifier {
     }
   }
 
-  // 2. Cập nhật thông tin (Logic mới tách biệt Text và File)
+  // 2. Cập nhật thông tin
   Future<bool> updateProfileData({
     required String fullName,
     required String phoneNumber,
@@ -64,9 +64,6 @@ class ProfileProvider with ChangeNotifier {
       // BƯỚC C: Nếu cả 2 bước trên thành công, gọi lại API getProfile
       // để kéo dữ liệu mới nhất (chứa link avatar mới) từ Backend về và cập nhật UI.
       if (isSuccess) {
-        // Ta không tự gán _profile ở đây nữa mà để hàm fetchProfile() làm việc đó
-        // Lưu ý: Không dùng await fetchProfile() trực tiếp ở đây để tránh trùng lặp _isLoading
-        // Ta sẽ tự lấy và gán để UI không bị giật
         final updatedProfile = await _repository.getProfile();
         if (updatedProfile != null) {
           _profile = updatedProfile;

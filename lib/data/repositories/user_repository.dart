@@ -20,14 +20,14 @@ class UserRepository {
     }
   }
 
-  // 2. API Cập nhật thông tin văn bản (Tên, Số điện thoại) theo chuẩn Swagger mới
+  // 2. API Cập nhật thông tin văn bản (Tên, Số điện thoại)
   Future<bool> updateTextProfile(String fullName, String phoneNumber) async {
     try {
       final response = await _apiService.dio.put(
         '/users/profile',
         data: {
-          "full_name": fullName,     // Map đúng key của backend
-          "phone_number": phoneNumber, // Map đúng key của backend
+          "full_name": fullName,
+          "phone_number": phoneNumber,
         },
       );
       return response.statusCode == 200; // Trả về true nếu thành công

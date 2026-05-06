@@ -1,21 +1,25 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../data/models/contact_model.dart';
 import '../data/repositories/contact_repository.dart';
+import '../data/services/hive_service.dart';
 
 class ContactProvider with ChangeNotifier {
   final ContactRepository _repository = ContactRepository();
   final String _cacheKey = 'emergency_contacts_cache';
 
   List<EmergencyContact> _systemContacts = [];
+  List<EmergencyContact> _localContacts = [];
   List<EmergencyContact> _customContacts = [];
   bool _isLoading = false;
 
-  List<EmergencyContact> get allContacts => [..._systemContacts, ..._customContacts];
+  List<EmergencyContact> get systemContacts => _systemContacts;
+  List<EmergencyContact> get localContacts => _localContacts;
+  List<EmergencyContact> get customContacts => _customContacts;
+  List<EmergencyContact> get allContacts => [..._systemContacts, ..._localContacts, ..._customContacts];
   bool get isLoading => _isLoading;
 
   // Lấy danh sách (Offline-first)
@@ -23,40 +27,59 @@ class ContactProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final prefs = await SharedPreferences.getInstance();
     var connectivityResult = await (Connectivity().checkConnectivity());
+    bool hasInternet = !connectivityResult.contains(ConnectivityResult.none);
 
-    if (connectivityResult != ConnectivityResult.none) {
+    if (hasInternet) {
       try {
-        final data = await _repository.getAllContacts();
-        if (data != null) {
-          _systemContacts = data['system']!;
-          _customContacts = data['custom']!;
+        double? lat;
+        double? lon;
 
-          // Lưu cache JSON
+        // TỰ ĐỘNG LẤY GPS ĐỂ TÌM TRẠM CỨU HỘ GẦN NHẤT
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (serviceEnabled) {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+            Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+            lat = position.latitude;
+            lon = position.longitude;
+          }
+        }
+
+        final data = await _repository.getAllContacts(lat: lat, long: lon);
+
+        if (data != null) {
+          _systemContacts = (data['system_contacts'] as List?)?.map((e) => EmergencyContact.fromJson(e)).toList() ?? [];
+          _localContacts = (data['local_contacts'] as List?)?.map((e) => EmergencyContact.fromJson(e)).toList() ?? [];
+          _customContacts = (data['custom_contacts'] as List?)?.map((e) => EmergencyContact.fromJson(e, isCustom: true)).toList() ?? [];
+
+          // Lưu cache JSON vào Hive (gồm cả 3 mảng)
           Map<String, dynamic> cacheData = {
-            'system': _systemContacts.map((e) => e.toJson()).toList(),
-            'custom': _customContacts.map((e) => e.toJson()).toList(),
+            'system_contacts': _systemContacts.map((e) => e.toJson()).toList(),
+            'local_contacts': _localContacts.map((e) => e.toJson()).toList(),
+            'custom_contacts': _customContacts.map((e) => e.toJson()).toList(),
           };
-          await prefs.setString(_cacheKey, jsonEncode(cacheData));
+          await HiveService.dataBox.put(_cacheKey, jsonEncode(cacheData));
         }
       } catch (e) {
-        _loadLocalData(prefs);
+        print("Lỗi fetch danh bạ: $e");
+        _loadLocalData();
       }
     } else {
-      _loadLocalData(prefs);
+      _loadLocalData();
     }
 
     _isLoading = false;
     notifyListeners();
   }
 
-  void _loadLocalData(SharedPreferences prefs) {
-    final String? cached = prefs.getString(_cacheKey);
+  void _loadLocalData() {
+    final String? cached = HiveService.dataBox.get(_cacheKey);
     if (cached != null) {
       final data = jsonDecode(cached);
-      _systemContacts = (data['system'] as List).map((e) => EmergencyContact.fromJson(e)).toList();
-      _customContacts = (data['custom'] as List).map((e) => EmergencyContact.fromJson(e, isCustom: true)).toList();
+      _systemContacts = (data['system_contacts'] as List?)?.map((e) => EmergencyContact.fromJson(e)).toList() ?? [];
+      _localContacts = (data['local_contacts'] as List?)?.map((e) => EmergencyContact.fromJson(e)).toList() ?? [];
+      _customContacts = (data['custom_contacts'] as List?)?.map((e) => EmergencyContact.fromJson(e, isCustom: true)).toList() ?? [];
     }
   }
 
@@ -70,7 +93,8 @@ class ContactProvider with ChangeNotifier {
   Future<void> sendEmergencySMS(String phoneNumber) async {
     try {
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      String mapUrl = "https://www.google.com/maps?q=${position.latitude},${position.longitude}";
+      // Fix link bản đồ chuẩn Google Maps
+      String mapUrl = "http://maps.google.com/maps?q=${position.latitude},${position.longitude}";
       String message = "TÔI ĐANG GẶP NGUY HIỂM. Vị trí của tôi: $mapUrl";
 
       final Uri url = Uri.parse('sms:$phoneNumber?body=${Uri.encodeComponent(message)}');
@@ -88,12 +112,13 @@ class ContactProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
   // Add contacs
   Future<bool> addContact(String name, String phone, String relation) async {
     final newContact = await _repository.addCustomContact(name, phone, relation);
     if (newContact != null) {
-      _customContacts.add(newContact); // Thêm vào mảng local
-      notifyListeners(); // Báo UI update ngay lập tức
+      _customContacts.add(newContact);
+      notifyListeners();
       return true;
     }
     return false;

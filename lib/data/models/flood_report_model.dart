@@ -11,11 +11,8 @@ class FloodReport {
   int upvotes;
   int downvotes;
   String? currentUserVote;
-
-  // === THÊM 2 TRƯỜNG NÀY ĐỂ FIX LỖI ===
   final String? category;
   final int? severity;
-  // ====================================
 
   FloodReport({
     required this.id,
@@ -29,8 +26,8 @@ class FloodReport {
     this.upvotes = 0,
     this.downvotes = 0,
     this.currentUserVote,
-    this.category, // Cập nhật constructor
-    this.severity, // Cập nhật constructor
+    this.category,
+    this.severity,
   });
 
   factory FloodReport.fromJson(Map<String, dynamic> json) {
@@ -59,10 +56,8 @@ class FloodReport {
       downvotes: json['downvotes'] ?? 0,
       currentUserVote: json['current_user_vote'],
 
-      // === MAP DỮ LIỆU TỪ JSON BACKEND TRẢ VỀ ===
       category: json['category'],
       severity: json['severity'] != null ? int.tryParse(json['severity'].toString()) : null,
-      // ===========================================
     );
   }
 }

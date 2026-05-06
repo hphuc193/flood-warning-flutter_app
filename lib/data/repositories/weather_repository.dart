@@ -10,7 +10,7 @@ class WeatherRepository {
   // 1. LẤY THỜI TIẾT HIỆN TẠI (Giữ nguyên)
   Future<WeatherModel?> getCurrentWeather(double lat, double long) async {
     try {
-      print("🚀 Gửi API Weather: Lat=$lat, Long=$long");
+      print("Gửi API Weather: Lat=$lat, Long=$long");
 
       final response = await _apiService.dio.get(
         '/weather/current',
@@ -25,8 +25,8 @@ class WeatherRepository {
       }
       return null;
     } on DioException catch (e) {
-      print("❌ Lỗi API Status: ${e.response?.statusCode}");
-      print("❌ Server báo lỗi: ${e.response?.data}");
+      print("Lỗi API Status: ${e.response?.statusCode}");
+      print("Server báo lỗi: ${e.response?.data}");
       return null;
     } catch (e) {
       print("Lỗi lạ: $e");
@@ -37,7 +37,7 @@ class WeatherRepository {
   // 2. LẤY DỰ BÁO THỜI TIẾT 5 NGÀY (ĐÃ SỬA CHUẨN)
   Future<WeatherForecastModel?> getWeatherForecast(double lat, double long) async {
     try {
-      print("🚀 Gửi API Forecast: Lat=$lat, Long=$long");
+      print("Gửi API Forecast: Lat=$lat, Long=$long");
 
       final response = await _apiService.dio.get(
         '/weather/forecast',
@@ -48,15 +48,12 @@ class WeatherRepository {
       );
 
       if (response.data['success'] == true) {
-        // --- ĐÃ SỬA Ở ĐÂY ---
-        // Truyền nguyên toàn bộ response.data vào Model.
-        // Model mới sẽ tự động parse 'city', 'success' và danh sách 'data' bên trong.
         return WeatherForecastModel.fromJson(response.data);
       }
       return null;
     } on DioException catch (e) {
-      print("❌ Lỗi API Forecast Status: ${e.response?.statusCode}");
-      print("❌ Server báo lỗi Forecast: ${e.response?.data}");
+      print("Lỗi API Forecast Status: ${e.response?.statusCode}");
+      print("Server báo lỗi Forecast: ${e.response?.data}");
       return null;
     } catch (e) {
       print("Lỗi lấy dự báo: $e");

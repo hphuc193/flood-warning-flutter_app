@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../../../providers/network_sync_provider.dart';
+import '../../widgets/offline_banner.dart';
+
 import '../../../providers/report_provider.dart';
 import '../../widgets/report_detail_modal.dart';
 import '../alert/alert_detail_screen.dart';
@@ -25,7 +28,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
-  // --- CÁC BIẾN BỘ LỌC MỚI ---
+  // --- CÁC BIẾN BỘ LỌC ---
   String _selectedStatus = '';
   String _selectedCategory = '';
   String _selectedSeverity = '';
@@ -36,7 +39,10 @@ class _ReportListScreenState extends State<ReportListScreen> {
     super.initState();
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-        context.read<ReportProvider>().loadMoreReports();
+        final isOffline = context.read<NetworkSyncProvider>().isOffline;
+        if (!isOffline) {
+          context.read<ReportProvider>().loadMoreReports();
+        }
       }
     });
 
@@ -60,8 +66,16 @@ class _ReportListScreenState extends State<ReportListScreen> {
     });
   }
 
-  // --- TRUYỀN THÊM THAM SỐ MỚI VÀO PROVIDER ---
   Future<void> _onRefresh() async {
+    // CHẶN GỌI API KHI MẤT MẠNG
+    final isOffline = Provider.of<NetworkSyncProvider>(context, listen: false).isOffline;
+    if (isOffline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Vui lòng kết nối mạng để làm mới dữ liệu")),
+      );
+      return;
+    }
+
     await context.read<ReportProvider>().fetchReports(
       reset: true,
       search: _searchController.text,
@@ -81,14 +95,18 @@ class _ReportListScreenState extends State<ReportListScreen> {
 
     final reportProvider = Provider.of<ReportProvider>(context);
     final reports = reportProvider.reports;
+    // LẮNG NGHE TRẠNG THÁI MẠNG
+    final isOffline = context.watch<NetworkSyncProvider>().isOffline;
 
     return Scaffold(
       backgroundColor: _bg,
       body: Column(
         children: [
-          _buildHeader(context, reportProvider.totalItems),
-          _buildSearchBar(),
-          _buildAdvancedFilters(), // Thay thế bằng bộ lọc nâng cao
+          if (isOffline) const SafeArea(bottom: false, child: OfflineBanner()),
+
+          _buildHeader(context, reportProvider.totalItems, isOffline),
+          _buildSearchBar(isOffline),
+          _buildAdvancedFilters(isOffline),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _onRefresh,
@@ -132,7 +150,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, int count) {
+  Widget _buildHeader(BuildContext context, int count, bool isOffline) {
     return Container(
       color: _surface,
       child: Stack(
@@ -148,6 +166,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
           ),
           SafeArea(
             bottom: false,
+            top: !isOffline,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Row(
@@ -162,7 +181,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: Color(0xFF2563EB)),
+                    icon: Icon(Icons.refresh_rounded, color: isOffline ? Colors.grey : const Color(0xFF2563EB)),
                     onPressed: _onRefresh,
                     tooltip: "Làm mới",
                   ),
@@ -190,24 +209,25 @@ class _ReportListScreenState extends State<ReportListScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(bool isOffline) {
     return Container(
       color: _surface,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: isOffline ? const Color(0xFFF8FAFC) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(12),
         ),
         child: TextField(
           controller: _searchController,
           onChanged: _onSearchChanged,
-          decoration: const InputDecoration(
-            hintText: "Tìm kiếm khu vực, mô tả...",
-            hintStyle: TextStyle(color: _textTertiary, fontSize: 14),
-            prefixIcon: Icon(Icons.search, color: _textSecondary),
+          enabled: !isOffline, // Khóa ô tìm kiếm khi offline
+          decoration: InputDecoration(
+            hintText: isOffline ? "Tìm kiếm không khả dụng khi Offline" : "Tìm kiếm khu vực, mô tả...",
+            hintStyle: TextStyle(color: isOffline ? Colors.grey : _textTertiary, fontSize: 14),
+            prefixIcon: Icon(Icons.search, color: isOffline ? Colors.grey : _textSecondary),
             border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
       ),
@@ -215,66 +235,72 @@ class _ReportListScreenState extends State<ReportListScreen> {
   }
 
   // --- BỘ LỌC NÂNG CAO ---
-  Widget _buildAdvancedFilters() {
-    return Container(
-      color: _surface,
-      width: double.infinity,
-      padding: const EdgeInsets.only(bottom: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Row(
-          children: [
-            _buildDropdownFilter(
-              value: _selectedStatus,
-              hint: 'Trạng thái',
-              items: const [
-                DropdownMenuItem(value: '', child: Text('Tất cả trạng thái')),
-                DropdownMenuItem(value: 'verified', child: Text('Đã xác minh')),
-                DropdownMenuItem(value: 'pending', child: Text('Chờ duyệt')),
-                DropdownMenuItem(value: 'rejected', child: Text('Từ chối')),
+  Widget _buildAdvancedFilters(bool isOffline) {
+    return IgnorePointer( // Khóa tương tác bộ lọc khi offline
+      ignoring: isOffline,
+      child: Opacity(
+        opacity: isOffline ? 0.5 : 1.0,
+        child: Container(
+          color: _surface,
+          width: double.infinity,
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                _buildDropdownFilter(
+                  value: _selectedStatus,
+                  hint: 'Trạng thái',
+                  items: const [
+                    DropdownMenuItem(value: '', child: Text('Tất cả trạng thái')),
+                    DropdownMenuItem(value: 'verified', child: Text('Đã xác minh')),
+                    DropdownMenuItem(value: 'pending', child: Text('Chờ duyệt')),
+                    DropdownMenuItem(value: 'rejected', child: Text('Từ chối')),
+                  ],
+                  onChanged: (val) { setState(() => _selectedStatus = val!); _onRefresh(); },
+                ),
+                const SizedBox(width: 8),
+                _buildDropdownFilter(
+                  value: _selectedTimeRange,
+                  hint: 'Thời gian',
+                  items: const [
+                    DropdownMenuItem(value: '', child: Text('Mọi lúc')),
+                    DropdownMenuItem(value: '24h', child: Text('24 giờ qua')),
+                    DropdownMenuItem(value: '3d', child: Text('3 ngày qua')),
+                    DropdownMenuItem(value: '7d', child: Text('7 ngày qua')),
+                    DropdownMenuItem(value: '30d', child: Text('30 ngày qua')),
+                  ],
+                  onChanged: (val) { setState(() => _selectedTimeRange = val!); _onRefresh(); },
+                ),
+                const SizedBox(width: 8),
+                _buildDropdownFilter(
+                  value: _selectedSeverity,
+                  hint: 'Mức độ',
+                  items: const [
+                    DropdownMenuItem(value: '', child: Text('Mọi mức độ')),
+                    DropdownMenuItem(value: '1', child: Text('Cấp 1 - Nhẹ')),
+                    DropdownMenuItem(value: '2,3', child: Text('Cấp 2, 3 - Vừa')),
+                    DropdownMenuItem(value: '4,5', child: Text('Cấp 4, 5 - Nghiêm trọng')),
+                  ],
+                  onChanged: (val) { setState(() => _selectedSeverity = val!); _onRefresh(); },
+                ),
+                const SizedBox(width: 8),
+                _buildDropdownFilter(
+                  value: _selectedCategory,
+                  hint: 'Loại sự cố',
+                  items: const [
+                    DropdownMenuItem(value: '', child: Text('Tất cả sự cố')),
+                    DropdownMenuItem(value: 'Nước ngập đường', child: Text('Nước ngập đường')),
+                    DropdownMenuItem(value: 'Nhà bị ngập', child: Text('Nhà bị ngập')),
+                    DropdownMenuItem(value: 'Cây đổ', child: Text('Cây đổ')),
+                    DropdownMenuItem(value: 'Mất điện', child: Text('Mất điện')),
+                  ],
+                  onChanged: (val) { setState(() => _selectedCategory = val!); _onRefresh(); },
+                ),
               ],
-              onChanged: (val) { setState(() => _selectedStatus = val!); _onRefresh(); },
             ),
-            const SizedBox(width: 8),
-            _buildDropdownFilter(
-              value: _selectedTimeRange,
-              hint: 'Thời gian',
-              items: const [
-                DropdownMenuItem(value: '', child: Text('Mọi lúc')),
-                DropdownMenuItem(value: '24h', child: Text('24 giờ qua')),
-                DropdownMenuItem(value: '3d', child: Text('3 ngày qua')),
-                DropdownMenuItem(value: '7d', child: Text('7 ngày qua')),
-                DropdownMenuItem(value: '30d', child: Text('30 ngày qua')),
-              ],
-              onChanged: (val) { setState(() => _selectedTimeRange = val!); _onRefresh(); },
-            ),
-            const SizedBox(width: 8),
-            _buildDropdownFilter(
-              value: _selectedSeverity,
-              hint: 'Mức độ',
-              items: const [
-                DropdownMenuItem(value: '', child: Text('Mọi mức độ')),
-                DropdownMenuItem(value: '1', child: Text('Cấp 1 - Nhẹ')),
-                DropdownMenuItem(value: '2,3', child: Text('Cấp 2, 3 - Vừa')),
-                DropdownMenuItem(value: '4,5', child: Text('Cấp 4, 5 - Nghiêm trọng')),
-              ],
-              onChanged: (val) { setState(() => _selectedSeverity = val!); _onRefresh(); },
-            ),
-            const SizedBox(width: 8),
-            _buildDropdownFilter(
-              value: _selectedCategory,
-              hint: 'Loại sự cố',
-              items: const [
-                DropdownMenuItem(value: '', child: Text('Tất cả sự cố')),
-                DropdownMenuItem(value: 'Nước ngập đường', child: Text('Nước ngập đường')),
-                DropdownMenuItem(value: 'Nhà bị ngập', child: Text('Nhà bị ngập')),
-                DropdownMenuItem(value: 'Cây đổ', child: Text('Cây đổ')),
-                DropdownMenuItem(value: 'Mất điện', child: Text('Mất điện')),
-              ],
-              onChanged: (val) { setState(() => _selectedCategory = val!); _onRefresh(); },
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -344,7 +370,6 @@ class _ReportCardState extends State<_ReportCard> {
   static const _border = Color(0xFFE2E8F0);
   static const _textPrimary = Color(0xFF0F172A);
   static const _textSecondary = Color(0xFF64748B);
-  static const _textTertiary = Color(0xFF94A3B8);
 
   Map<String, dynamic> _getStatusConfig(String status) {
     switch (status) {
@@ -354,7 +379,6 @@ class _ReportCardState extends State<_ReportCard> {
     }
   }
 
-  // --- TRỢ THỦ LẤY MÀU MỨC ĐỘ ---
   Color _getSeverityColor(int? level) {
     if (level == null) return Colors.grey;
     if (level == 1) return Colors.green;
@@ -368,7 +392,7 @@ class _ReportCardState extends State<_ReportCard> {
   Widget build(BuildContext context) {
     final report = widget.report;
     final statusConfig = _getStatusConfig(report.status);
-    final sevColor = _getSeverityColor(report.severity); // Thuộc tính mới
+    final sevColor = _getSeverityColor(report.severity);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -425,8 +449,6 @@ class _ReportCardState extends State<_ReportCard> {
                         const SizedBox(height: 5),
                         Text(report.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: _textSecondary, height: 1.45)),
                         const SizedBox(height: 8),
-
-                        // --- ROW MỚI HIỂN THỊ LOẠI SỰ CỐ & MỨC ĐỘ ---
                         Row(
                           children: [
                             if (report.category != null && report.category.toString().isNotEmpty)

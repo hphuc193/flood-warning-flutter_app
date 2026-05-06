@@ -41,6 +41,7 @@ dependencies:
 
   # Maps (OpenStreetMap)
   flutter_map: ^6.1.0
+  flutter_map_tile_caching: ^9.0.1
   latlong2: ^0.9.0
 
   # Real-time
@@ -74,6 +75,8 @@ dependencies:
   firebase_storage: ^12.4.10
   firebase_messaging: ^15.2.10
   flutter_facebook_auth: ^7.1.5
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

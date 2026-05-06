@@ -6,13 +6,18 @@ import 'package:latlong2/latlong.dart' hide Path;
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import '../../../providers/network_sync_provider.dart';
+import '../../widgets/offline_banner.dart';
+
 import '../../../providers/report_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/sos_provider.dart';
 import '../../../providers/weather_provider.dart';
 import '../../widgets/report_detail_modal.dart';
 import '../../widgets/weather_info_card.dart';
-import '../auth/login_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -50,6 +55,76 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   late AnimationController _legendAnimController;
   late Animation<double> _legendAnim;
 
+  String _currentWeatherLayer = 'none';
+
+  final List<Map<String, dynamic>> _weatherLayers = [
+    {'id': 'none', 'name': 'Tắt radar', 'icon': Icons.layers_clear},
+    {
+      'id': 'temp', 'name': 'Nhiệt độ', 'icon': CupertinoIcons.thermometer,
+      'unit': '°C', 'min': '-40', 'max': '40+',
+      'colors': [
+        const Color(0xFF821692), // Tím (-40)
+        const Color(0xFF381395), // Indigo (-20)
+        const Color(0xFF1F5F99), // Xanh lam nhạt (-10)
+        const Color(0xFF20C4E8), // Xanh ngọc (0)
+        const Color(0xFF34C759), // Xanh lá (10)
+        const Color(0xFFFFCC00), // Vàng (20)
+        const Color(0xFFFF9500), // Cam (30)
+        const Color(0xFFFF3B30), // Đỏ (40+)
+      ]
+    },
+    {
+      'id': 'precipitation', 'name': 'Lượng mưa', 'icon': CupertinoIcons.drop_fill,
+      'unit': 'mm/h', 'min': '0', 'max': '140',
+      'colors': [
+        Colors.transparent,
+        const Color(0xFFE2FBA0), // Vàng chanh nhạt (0.1)
+        const Color(0xFF75D92A), // Xanh lá (2)
+        const Color(0xFF24CAE3), // Xanh lơ (10)
+        const Color(0xFF163BF1), // Xanh lam đậm (20)
+        const Color(0xFF8B12F2), // Tím (50)
+        const Color(0xFFF3134C), // Đỏ (140)
+      ]
+    },
+    {
+      'id': 'wind', 'name': 'Sức gió', 'icon': CupertinoIcons.wind,
+      'unit': 'm/s', 'min': '0', 'max': '100',
+      'colors': [
+        Colors.transparent,
+        const Color(0xFFFFFF00), // Vàng (10)
+        const Color(0xFFFF9900), // Cam (20)
+        const Color(0xFFFF0000), // Đỏ (50)
+        const Color(0xFF9900FF), // Tím (100)
+      ]
+    },
+    {
+      'id': 'pressure', 'name': 'Áp suất', 'icon': CupertinoIcons.gauge,
+      'unit': 'hPa', 'min': '940', 'max': '1080',
+      'colors': [
+        const Color(0xFF0073FF), // 940
+        const Color(0xFF55D0FF), // 980
+        const Color(0xFFFFF028), // 1010
+        const Color(0xFFFFAA00), // 1020
+        const Color(0xFFBD003D), // 1080
+      ]
+    },
+    {
+      'id': 'clouds', 'name': 'Đám mây', 'icon': CupertinoIcons.cloud_fill,
+      'unit': '%', 'min': '0', 'max': '100',
+      'colors': [
+        Colors.transparent,
+        Colors.white54,
+        Colors.white,
+      ]
+    },
+  ];
+
+  String _getWeatherLayerUrl() {
+    if (_currentWeatherLayer == 'none') return '';
+    final apiKey = dotenv.env['OWM_API_KEY'] ?? '';
+    return 'https://tile.openweathermap.org/map/${_currentWeatherLayer}_new/{z}/{x}/{y}.png?appid=$apiKey';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -69,90 +144,55 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // ==========================================
   // HÀM TÌM KIẾM
-  // ==========================================
   Future<void> _fetchSuggestions(String query) async {
     if (query.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _suggestions = [];
-          _isLoadingSuggestions = false;
-        });
-      }
+      if (mounted) setState(() { _suggestions = []; _isLoadingSuggestions = false; });
       return;
     }
-
     _cancelToken?.cancel("Cancelled due to new request");
     _cancelToken = CancelToken();
-
     if (mounted) setState(() => _isLoadingSuggestions = true);
 
     try {
       final url = "https://photon.komoot.io/api/?q=$query&limit=5&lang=en";
-
-      final response = await Dio().get(
-        url,
-        cancelToken: _cancelToken,
-        options: Options(headers: {
-          'User-Agent': 'FloodWarningMobileApp/1.0',
-          'Accept': 'application/json'
-        }),
-      );
-
+      final response = await Dio().get(url, cancelToken: _cancelToken, options: Options(headers: {'User-Agent': 'FloodWarningMobileApp/1.0'}));
       if (response.statusCode == 200 && mounted) {
-        setState(() {
-          _suggestions = response.data['features'] as List;
-          _isLoadingSuggestions = false;
-        });
+        setState(() { _suggestions = response.data['features'] as List; _isLoadingSuggestions = false; });
       }
     } catch (e) {
-      if (e is DioException && CancelToken.isCancel(e)) {
-        // Ignored
-      } else {
-        print("❌ Lỗi tìm kiếm Photon: $e");
-        if (mounted) setState(() => _isLoadingSuggestions = false);
-      }
+      if (e is DioException && CancelToken.isCancel(e)) return;
+      print("❌ Lỗi tìm kiếm Photon: $e");
+      if (mounted) setState(() => _isLoadingSuggestions = false);
     }
   }
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      _fetchSuggestions(query);
-    });
+    _debounce = Timer(const Duration(milliseconds: 500), () => _fetchSuggestions(query));
   }
 
   void _selectLocation(dynamic feature) {
     try {
       final coordinates = feature['geometry']['coordinates'];
-      final double lon = coordinates[0];
-      final double lat = coordinates[1];
+      final double lon = coordinates[0]; final double lat = coordinates[1];
       final props = feature['properties'];
-
       String name = props['name'] ?? "";
       String city = props['city'] ?? props['state'] ?? props['country'] ?? "Vị trí ghim";
       String displayName = name.isEmpty ? city : (city.isNotEmpty && city != name ? "$name, $city" : name);
 
       FocusScope.of(context).unfocus();
-
       setState(() {
         _suggestions = [];
-        _searchController.value = TextEditingValue(
-          text: displayName,
-          selection: TextSelection.collapsed(offset: displayName.length),
-        );
+        _searchController.value = TextEditingValue(text: displayName, selection: TextSelection.collapsed(offset: displayName.length));
       });
-
       _mapController.move(LatLng(lat, lon), 15.0);
     } catch (e) {
       print("Lỗi parse tọa độ: $e");
     }
   }
 
-  // ==========================================
   // GPS & WEATHER
-  // ==========================================
   Future<void> _moveToCurrentLocation() async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -160,7 +200,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) return;
       }
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
       LatLng newLoc = LatLng(position.latitude, position.longitude);
 
       setState(() => _userLocation = newLoc);
@@ -182,36 +222,23 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Chưa có dữ liệu thời tiết. Vui lòng đợi hoặc bật GPS.")));
       return;
     }
-
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Wrap(
-          children: [
-            WeatherInfoCard(weather: weatherProvider.currentWeather!),
-          ],
-        ),
+        backgroundColor: Colors.transparent, elevation: 0, insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Wrap(children: [WeatherInfoCard(weather: weatherProvider.currentWeather!)]),
       ),
     );
   }
 
   void _showMapStyleDialog() {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
+      context: context, backgroundColor: Colors.transparent, isScrollControlled: true,
       builder: (ctx) {
         return _MapStyleSheet(
-          mapStyles: _mapStyles,
-          currentMapUrl: _currentMapUrl,
+          mapStyles: _mapStyles, currentMapUrl: _currentMapUrl,
           onSelect: (style) {
-            setState(() {
-              _currentMapUrl = style['url'] as String;
-              _currentMapName = style['name'] as String;
-            });
+            setState(() { _currentMapUrl = style['url'] as String; _currentMapName = style['name'] as String; });
             Navigator.pop(ctx);
           },
         );
@@ -221,20 +248,18 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   void _toggleLegend() {
     setState(() => _showLegend = !_showLegend);
-    if (_showLegend) {
-      _legendAnimController.forward();
-    } else {
-      _legendAnimController.reverse();
-    }
+    if (_showLegend) _legendAnimController.forward(); else _legendAnimController.reverse();
   }
 
-  // ==========================================
   // BUILD
-  // ==========================================
   @override
   Widget build(BuildContext context) {
     final reportProvider = Provider.of<ReportProvider>(context);
+    final isOffline = context.watch<NetworkSyncProvider>().isOffline;
     final double screenHeight = MediaQuery.of(context).size.height;
+
+    // Lấy cấu hình của lớp Radar đang chọn
+    final currentLayerConfig = _weatherLayers.firstWhere((layer) => layer['id'] == _currentWeatherLayer);
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -254,21 +279,25 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 onPositionChanged: (position, hasGesture) {
                   if (hasGesture && position.center != null) {
                     FocusScope.of(context).unfocus();
-                    if (_suggestions.isNotEmpty) {
-                      setState(() => _suggestions = []);
-                    }
+                    if (_suggestions.isNotEmpty) setState(() => _suggestions = []);
                   }
                 },
                 onTap: (_, __) {
                   FocusScope.of(context).unfocus();
                   setState(() => _suggestions = []);
+                  if (_showLegend) _toggleLegend();
                 },
               ),
               children: [
                 TileLayer(
                   urlTemplate: _currentMapUrl,
                   userAgentPackageName: 'vn.edu.umt.floodwarning',
+                  tileProvider: _currentMapName == 'Tiêu chuẩn' ? FMTCStore('fws_offline_map').getTileProvider() : null,
                 ),
+
+                if (_currentWeatherLayer != 'none')
+                  TileLayer(urlTemplate: _getWeatherLayerUrl()),
+
                 MarkerLayer(
                   markers: [
                     ...reportProvider.reports.map((report) {
@@ -277,34 +306,28 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                         width: 56, height: 64,
                         child: GestureDetector(
                           onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (_) => ReportDetailModal(report: report),
-                            );
+                            showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => ReportDetailModal(report: report));
                           },
-                          // === TRUYỀN THÊM STATUS VÀO MARKER ===
                           child: _FloodMarker(status: report.status),
                         ),
                       );
                     }),
                     if (_userLocation != null)
-                      Marker(
-                        point: _userLocation!,
-                        width: 22, height: 22,
-                        child: _UserLocationDot(),
-                      ),
+                      Marker(point: _userLocation!, width: 22, height: 22, child: _UserLocationDot()),
                   ],
                 ),
               ],
             ),
           ),
 
-          // ── 2. TOP BAR & SEARCH ──────────────
+          // ── 2. TOP BAR, SEARCH & PILLS ──────────────
           SafeArea(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (isOffline) const OfflineBanner(),
+
+                // Ô Tìm Kiếm và nút SOS
                 Row(
                   children: [
                     Padding(
@@ -318,20 +341,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                                 sosProvider.triggerSOS(context, currentUserId, "FLOOD");
                               },
                               child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.red.withValues(alpha: 0.5), blurRadius: 15, spreadRadius: 2)
-                                  ],
-                                ),
+                                width: 48, height: 48,
+                                decoration: BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.5), blurRadius: 15, spreadRadius: 2)]),
                                 child: sosProvider.isLoading
-                                    ? const Padding(
-                                  padding: EdgeInsets.all(12.0),
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                )
+                                    ? const Padding(padding: EdgeInsets.all(12.0), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                     : const Icon(Icons.sos_rounded, color: Colors.white, size: 28, weight: 800),
                               ),
                             );
@@ -341,28 +354,19 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     Expanded(
                       child: Container(
                         margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
-                        decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 2))]
-                        ),
+                        decoration: BoxDecoration(color: isOffline ? Colors.grey.shade200 : Colors.white, borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 2))]),
                         child: TextField(
                           controller: _searchController,
                           onChanged: _onSearchChanged,
+                          enabled: !isOffline,
                           decoration: InputDecoration(
-                            hintText: "Nhập tên thành phố, khu vực...",
-                            prefixIcon: const Icon(Icons.search, color: Colors.blueAccent),
+                            hintText: isOffline ? "Khóa khi ngoại tuyến" : "Nhập tên thành phố, khu vực...",
+                            hintStyle: TextStyle(color: isOffline ? Colors.grey : Colors.black54, fontSize: 14),
+                            prefixIcon: Icon(Icons.search, color: isOffline ? Colors.grey : Colors.blueAccent),
                             suffixIcon: _isLoadingSuggestions
                                 ? const Padding(padding: EdgeInsets.all(12.0), child: CircularProgressIndicator(strokeWidth: 2))
-                                : IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.grey),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _suggestions = []);
-                              },
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                                : IconButton(icon: Icon(Icons.clear, color: isOffline ? Colors.transparent : Colors.grey), onPressed: isOffline ? null : () { _searchController.clear(); setState(() => _suggestions = []); }),
+                            border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 15),
                           ),
                         ),
                       ),
@@ -370,27 +374,90 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   ],
                 ),
 
+                // === PILL BUTTONS (CHỌN LỚP RADAR) ===
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _weatherLayers.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final layer = _weatherLayers[index];
+                      final isSelected = _currentWeatherLayer == layer['id'];
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() { _currentWeatherLayer = layer['id'] as String; });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: isSelected ? Colors.transparent : Colors.grey.shade300),
+                              boxShadow: [
+                                if (isSelected) BoxShadow(color: const Color(0xFF2563EB).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))
+                              ]
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(layer['icon'] as IconData, size: 16, color: isSelected ? Colors.white : Colors.black87),
+                              const SizedBox(width: 6),
+                              Text(layer['name'] as String, style: TextStyle(fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? Colors.white : Colors.black87)),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                // === BẢNG CHÚ THÍCH MÀU SẮC RADAR CHUẨN OWM ===
+                if (_currentWeatherLayer != 'none')
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, top: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))]
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(currentLayerConfig['min'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 100, height: 12,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(6),
+                              gradient: LinearGradient(colors: currentLayerConfig['colors'] as List<Color>),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text("${currentLayerConfig['max']} ${currentLayerConfig['unit']}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Danh sách gợi ý tìm kiếm
                 if (_suggestions.isNotEmpty)
                   Container(
-                    margin: const EdgeInsets.only(left: 60, right: 16),
+                    margin: const EdgeInsets.only(left: 60, right: 16, top: 10),
                     constraints: const BoxConstraints(maxHeight: 300),
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))]
-                    ),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))]),
                     child: ListView.separated(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      itemCount: _suggestions.length,
+                      padding: EdgeInsets.zero, shrinkWrap: true, itemCount: _suggestions.length,
                       separatorBuilder: (ctx, i) => const Divider(height: 1, color: Colors.grey),
                       itemBuilder: (ctx, index) {
-                        final item = _suggestions[index];
-                        final props = item['properties'];
-
+                        final item = _suggestions[index]; final props = item['properties'];
                         final String name = props['name'] ?? "Không tên";
                         final String details = [props['city'], props['district'], props['country']].where((e) => e != null).join(", ");
-
                         return ListTile(
                           leading: const Icon(Icons.location_on_outlined, color: Colors.grey),
                           title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -404,74 +471,52 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // ── 3. MAP NAME BADGE ────────────────────────
+          // ── 3. KHỐI GÓC DƯỚI TRÁI: TÊN BẢN ĐỒ & CHÚ THÍCH NGẬP LỤT ──
           Positioned(
             bottom: 110,
             left: 16,
-            child: _MapNameBadge(name: _currentMapName),
-          ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _MapNameBadge(name: _currentMapName),
 
-          // ── 4. LEGEND ────────────────────────────────
-          Positioned(
-            bottom: 160,
-            left: 16,
-            child: FadeTransition(
-              opacity: _legendAnim,
-              child: ScaleTransition(
-                scale: _legendAnim,
-                alignment: Alignment.bottomLeft,
-                child: _showLegend ? _LegendCard() : const SizedBox.shrink(),
-              ),
+                FadeTransition(
+                  opacity: _legendAnim,
+                  child: SizeTransition(
+                    sizeFactor: _legendAnim,
+                    axisAlignment: -1.0,
+                    child: _showLegend
+                        ? Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: _LegendCard(),
+                    )
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // ── 5. FAB CLUSTER (bottom right) ────────────
+          // ── 4. FAB CLUSTER (bottom right) ────────────
           Positioned(
             bottom: 110,
             right: 16,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _FabButton(
-                  heroTag: 'btn_weather',
-                  icon: CupertinoIcons.cloud_sun_fill,
-                  color: Colors.white,
-                  iconColor: const Color(0xFF5856D6),
-                  onTap: _showWeatherDialog,
-                  tooltip: 'Xem thời tiết',
-                ),
+                _FabButton(heroTag: 'btn_weather', icon: CupertinoIcons.cloud_sun_fill, color: Colors.white, iconColor: const Color(0xFF30B0C7), onTap: _showWeatherDialog, tooltip: 'Xem thời tiết'),
                 const SizedBox(height: 10),
-                _FabButton(
-                  heroTag: 'btn_legend',
-                  icon: CupertinoIcons.info_circle_fill,
-                  color: _showLegend ? const Color(0xFFFF9500) : Colors.white,
-                  iconColor: _showLegend ? Colors.white : const Color(0xFFFF9500),
-                  onTap: _toggleLegend,
-                  tooltip: 'Chú thích',
-                ),
+                _FabButton(heroTag: 'btn_legend', icon: CupertinoIcons.info_circle_fill, color: _showLegend ? const Color(0xFFFF9500) : Colors.white, iconColor: _showLegend ? Colors.white : const Color(0xFFFF9500), onTap: _toggleLegend, tooltip: 'Chú thích'),
                 const SizedBox(height: 10),
-                _FabButton(
-                  heroTag: 'btn_map_layer',
-                  icon: CupertinoIcons.layers_fill,
-                  color: Colors.white,
-                  iconColor: const Color(0xFF30B0C7),
-                  onTap: _showMapStyleDialog,
-                  tooltip: 'Lớp bản đồ',
-                ),
+                _FabButton(heroTag: 'btn_map_layer', icon: CupertinoIcons.layers_fill, color: Colors.white, iconColor: const Color(0xFF2563EB), onTap: _showMapStyleDialog, tooltip: 'Lớp bản đồ'),
                 const SizedBox(height: 10),
-                _FabButton(
-                  heroTag: 'btn_gps_main',
-                  icon: CupertinoIcons.location_fill,
-                  color: const Color(0xFF007AFF),
-                  iconColor: Colors.white,
-                  onTap: _moveToCurrentLocation,
-                  tooltip: 'Vị trí của bạn',
-                ),
+                _FabButton(heroTag: 'btn_gps_main', icon: CupertinoIcons.location_fill, color: const Color(0xFF007AFF), iconColor: Colors.white, onTap: _moveToCurrentLocation, tooltip: 'Vị trí của bạn'),
               ],
             ),
           ),
 
-          // ── 6. LOADING ───────────────────────────────
+          // ── 5. LOADING ───────────────────────────────
           if (reportProvider.isLoading && reportProvider.reports.isEmpty)
             const Center(child: CupertinoActivityIndicator(radius: 16)),
         ],
@@ -480,33 +525,23 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 }
 
-// ============================================================
 // CÁC COMPONENT PHỤ TRỢ
-// ============================================================
 
 class _FloodMarker extends StatelessWidget {
   final String status;
-
-  // === KHAI BÁO BIẾN STATUS ===
   const _FloodMarker({required this.status});
 
-  // === HÀM LẤY MÀU THEO TRẠNG THÁI ===
   Color _getStatusColor() {
     switch (status) {
-      case 'verified':
-        return const Color(0xFF059669); // Xanh lá cây (Đã duyệt)
-      case 'rejected':
-        return const Color(0xFFDC2626); // Đỏ (Từ chối)
-      case 'pending':
-      default:
-        return const Color(0xFFD97706); // Vàng cam (Chờ duyệt)
+      case 'verified': return const Color(0xFF059669);
+      case 'rejected': return const Color(0xFFDC2626);
+      case 'pending': default: return const Color(0xFFD97706);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final markerColor = _getStatusColor();
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -515,16 +550,11 @@ class _FloodMarker extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white, shape: BoxShape.circle,
             boxShadow: [
-              // CẬP NHẬT MÀU BÓNG CỦA MARKER THEO STATUS
               BoxShadow(
-                  color: markerColor.withValues(alpha: 0.45),
-                  blurRadius: 10,
-                  spreadRadius: 3,
-                  offset: const Offset(0, 3)
+                  color: markerColor.withValues(alpha: 0.45), blurRadius: 10, spreadRadius: 3, offset: const Offset(0, 3)
               )
             ],
           ),
-          // CẬP NHẬT MÀU ICON THEO STATUS
           child: Icon(CupertinoIcons.exclamationmark_triangle_fill, color: markerColor, size: 22),
         ),
         ClipPath(
@@ -576,7 +606,6 @@ class _MapNameBadge extends StatelessWidget {
   }
 }
 
-// === CẬP NHẬT LEGEND CARD CHO ĐỦ 3 TRẠNG THÁI ===
 class _LegendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -590,7 +619,7 @@ class _LegendCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Chú thích bản đồ', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF1C1C1E))),
+          const Text('Chú thích báo cáo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF1C1C1E))),
           const SizedBox(height: 10),
           _LegendItem(icon: CupertinoIcons.exclamationmark_triangle_fill, color: const Color(0xFF059669), label: 'Đã xác minh', sublabel: 'Thông tin tin cậy'),
           const SizedBox(height: 8),

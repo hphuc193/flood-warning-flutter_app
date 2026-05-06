@@ -31,9 +31,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     super.dispose();
   }
 
-  // ==========================================
   // HÀM TÌM KIẾM ĐÃ SỬA LỖI API PHOTON
-  // ==========================================
   Future<void> _fetchSuggestions(String query) async {
     if (query.isEmpty) {
       if (mounted) {
@@ -51,7 +49,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     if (mounted) setState(() => _isLoadingSuggestions = true);
 
     try {
-      // Đã sửa 'lang=vi' thành 'lang=en'
       final url = "https://photon.komoot.io/api/?q=$query&limit=5&lang=en";
 
       final response = await Dio().get(
@@ -88,9 +85,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     });
   }
 
-  // ==========================================
   // HÀM CHỌN VỊ TRÍ (Tích hợp bản vá UX con trỏ)
-  // ==========================================
   void _selectLocation(dynamic feature) {
     try {
       final coordinates = feature['geometry']['coordinates'];
@@ -109,7 +104,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
         _selectedName = displayName;
         _suggestions = [];
 
-        // Fix UX: Điền text và đẩy con trỏ về cuối dòng
         _searchController.value = TextEditingValue(
           text: displayName,
           selection: TextSelection.collapsed(offset: displayName.length),

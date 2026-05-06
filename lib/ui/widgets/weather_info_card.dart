@@ -19,32 +19,32 @@ class WeatherInfoCard extends StatelessWidget {
     return CupertinoIcons.sun_max_fill;
   }
 
-  // 2. TẠO GRADIENT NỀN SANG TRỌNG THEO THỜI TIẾT
+  // 2. TẠO GRADIENT THEO THỜI TIẾT
   LinearGradient _weatherGradient(String description) {
     final desc = description.toLowerCase();
     if (desc.contains('rain') || desc.contains('mưa')) {
       return const LinearGradient(
-          colors: [Color(0xFF5C78A4), Color(0xFF233B62)], // Xanh xám u ám
+          colors: [Color(0xFF5C78A4), Color(0xFF233B62)],
           begin: Alignment.topLeft, end: Alignment.bottomRight);
     }
     if (desc.contains('thunder') || desc.contains('storm') || desc.contains('sấm')) {
       return const LinearGradient(
-          colors: [Color(0xFF4B3E6A), Color(0xFF1B1429)], // Tím đen giông bão
+          colors: [Color(0xFF4B3E6A), Color(0xFF1B1429)],
           begin: Alignment.topLeft, end: Alignment.bottomRight);
     }
     if (desc.contains('cloud') || desc.contains('mây')) {
       return const LinearGradient(
-          colors: [Color(0xFF8CA5B9), Color(0xFF5A7285)], // Xám mây
+          colors: [Color(0xFF8CA5B9), Color(0xFF5A7285)],
           begin: Alignment.topLeft, end: Alignment.bottomRight);
     }
     if (desc.contains('snow') || desc.contains('tuyết')) {
       return const LinearGradient(
-          colors: [Color(0xFF90B5D6), Color(0xFF5582AA)], // Xanh tuyết lạnh
+          colors: [Color(0xFF90B5D6), Color(0xFF5582AA)],
           begin: Alignment.topLeft, end: Alignment.bottomRight);
     }
     // Mặc định là Nắng/Quang mây
     return const LinearGradient(
-        colors: [Color(0xFF62A2E8), Color(0xFF2670D2)], // Xanh da trời nắng đẹp
+        colors: [Color(0xFF62A2E8), Color(0xFF2670D2)],
         begin: Alignment.topLeft, end: Alignment.bottomRight);
   }
 
@@ -54,10 +54,10 @@ class WeatherInfoCard extends StatelessWidget {
     final gradient = _weatherGradient(weather.description);
 
     return Container(
-      width: 320, // Độ rộng cố định cho Dialog nhìn cân đối
+      width: 320,
       decoration: BoxDecoration(
         gradient: gradient,
-        borderRadius: BorderRadius.circular(28), // Bo góc cực lớn chuẩn iOS 16+
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.3),
@@ -65,12 +65,10 @@ class WeatherInfoCard extends StatelessWidget {
             offset: const Offset(0, 10),
           ),
         ],
-        // Viền trắng siêu mỏng tạo hiệu ứng kính (Glassmorphism)
         border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
       ),
       child: Stack(
         children: [
-          // Lớp trang trí mờ ảo ở background (tùy chọn cho đẹp)
           Positioned(
             right: -20,
             top: -20,
@@ -83,7 +81,6 @@ class WeatherInfoCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- DÒNG 1: TÊN THÀNH PHỐ ---
                 Row(
                   children: [
                     const Icon(CupertinoIcons.location_solid, color: Colors.white, size: 18),
@@ -106,12 +103,10 @@ class WeatherInfoCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // --- DÒNG 2: NHIỆT ĐỘ & ICON CẬN CẢNH ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Nhiệt độ khổng lồ
                     Text(
                       "${weather.temp.toStringAsFixed(0)}°",
                       style: const TextStyle(
@@ -123,7 +118,6 @@ class WeatherInfoCard extends StatelessWidget {
                       ),
                     ),
 
-                    // Icon thời tiết hiển thị to rõ
                     weather.iconUrl.isNotEmpty
                         ? Image.network(
                       weather.iconUrl,
@@ -137,10 +131,8 @@ class WeatherInfoCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // --- DÒNG 3: MÔ TẢ & THÔNG SỐ (BADGES) ---
                 Row(
                   children: [
-                    // Badge Mô tả
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -155,7 +147,6 @@ class WeatherInfoCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
 
-                    // Badge Gió
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -184,7 +175,6 @@ class WeatherInfoCard extends StatelessWidget {
     );
   }
 
-  // Hàm viết hoa chữ cái đầu cho mô tả đẹp hơn
   String _capitalize(String text) {
     if (text.isEmpty) return text;
     return text[0].toUpperCase() + text.substring(1).toLowerCase();

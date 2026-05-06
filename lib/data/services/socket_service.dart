@@ -5,8 +5,6 @@ class SocketService {
   late IO.Socket _socket;
   IO.Socket get socket => _socket!;
 
-  // URL Socket từ server của bạn
-  // Lưu ý: Render dùng wss (secure) nên cần cấu hình đúng
   final String _serverUrl = 'https://flood-warning-backend.onrender.com';
 
   factory SocketService() {
@@ -17,18 +15,18 @@ class SocketService {
 
   void initSocket() {
     _socket = IO.io(_serverUrl, IO.OptionBuilder()
-        .setTransports(['websocket']) // Bắt buộc dùng websocket để tối ưu
-        .disableAutoConnect() // Tắt tự động kết nối lúc init để mình control
+        .setTransports(['websocket'])
+        .disableAutoConnect()
         .build());
 
     _socket.connect();
 
     _socket.onConnect((_) {
-      print('✅ Socket Connected: ${_socket.id}');
+      print('Socket Connected: ${_socket.id}');
     });
 
     _socket.onDisconnect((_) {
-      print('❌ Socket Disconnected');
+      print('Socket Disconnected');
     });
 
     _socket.onError((data) => print('Socket Error: $data'));
@@ -37,14 +35,14 @@ class SocketService {
   // Hàm lắng nghe sự kiện cụ thể
   void onNewFloodReport(Function(dynamic) callback) {
     _socket.on('new_flood_report', (data) {
-      print('🔔 New Flood Alert Received: $data');
+      print('New Flood Alert Received: $data');
       callback(data);
     });
   }
 
   void onWeatherUpdate(Function(dynamic) callback) {
     _socket.on('weather_update', (data) {
-      print('⛈️ Weather Update: $data');
+      print('Weather Update: $data');
       callback(data);
     });
   }

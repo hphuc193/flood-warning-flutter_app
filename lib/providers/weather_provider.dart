@@ -12,15 +12,14 @@ class WeatherProvider with ChangeNotifier {
   final SocketService _socketService = SocketService();
   final NotificationService _notificationService = NotificationService();
 
-  // --- THỜI TIẾT HIỆN TẠI ---
+  // THỜI TIẾT HIỆN TẠI
   WeatherModel? _currentWeather;
   bool _isLoading = false;
 
   WeatherModel? get currentWeather => _currentWeather;
   bool get isLoading => _isLoading;
 
-  // --- DỰ BÁO THỜI TIẾT (5 NGÀY/3 GIỜ) ---
-  // SỬA: Đổi từ List thành 1 object duy nhất
+  // DỰ BÁO THỜI TIẾT (5 NGÀY/3 GIỜ)
   WeatherForecastModel? _forecastData;
   bool _isForecastLoading = false;
 
@@ -98,12 +97,11 @@ class WeatherProvider with ChangeNotifier {
   List<Map<String, dynamic>> _savedLocations = [];
   List<Map<String, dynamic>> get savedLocations => _savedLocations;
 
-  // Lấy vị trí hiện tại của thiết bị (Mặc định tạm là HCM, bạn có thể thay bằng Geolocator sau)
   final Map<String, dynamic> _currentLocation = {
     'name': 'Vị trí hiện tại (TP.HCM)',
     'lat': 10.7626,
     'lon': 106.6602,
-    'isCurrent': true, // Cờ đánh dấu đây là vị trí GPS
+    'isCurrent': true,
   };
   Map<String, dynamic> get currentLocation => _currentLocation;
 

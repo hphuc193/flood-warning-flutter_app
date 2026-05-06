@@ -6,21 +6,21 @@ class ContactRepository {
   final ApiService _apiService = ApiService();
 
   // 1. Lấy toàn bộ danh bạ
-  Future<Map<String, List<EmergencyContact>>?> getAllContacts() async {
+  Future<Map<String, dynamic>?> getAllContacts({double? lat, double? long}) async {
     try {
-      final response = await _apiService.dio.get('/emergency-contacts');
+      String url = '/emergency-contacts'; // Giữ nguyên endpoint cũ của bạn
+
+      // Nếu có tọa độ GPS truyền vào, nối thêm vào URL làm Query Parameter
+      if (lat != null && long != null) {
+        url += '?lat=$lat&long=$long';
+      }
+
+      final response = await _apiService.dio.get(url);
+
       if (response.data['success'] == true) {
-        final Map<String, dynamic> data = response.data['data'];
-
-        List<EmergencyContact> system = (data['system_contacts'] as List)
-            .map((e) => EmergencyContact.fromJson(e))
-            .toList();
-
-        List<EmergencyContact> custom = (data['custom_contacts'] as List)
-            .map((e) => EmergencyContact.fromJson(e, isCustom: true))
-            .toList();
-
-        return {'system': system, 'custom': custom};
+        // Thay vì parse từng cục ở đây, chúng ta trả về toàn bộ Map 'data'
+        // Để cho ContactProvider tự do bóc tách 3 mảng (System, Local, Custom)
+        return response.data['data'];
       }
       return null;
     } catch (e) {

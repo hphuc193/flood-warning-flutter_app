@@ -32,9 +32,9 @@ class AuthRepository {
   Future<Map<String, dynamic>> loginWithGoogle(String idToken) async {
     try {
       final response = await _apiService.dio.post(
-        '/auth/firebase-login', // Endpoint Backend của bạn (VD: /api/v1/auth/google)
+        '/auth/firebase-login',
         data: {
-          'token': idToken, // Backend nhận key là 'token' hoặc 'idToken' tùy bạn đặt
+          'token': idToken,
         },
       );
       return response.data;
@@ -46,14 +46,13 @@ class AuthRepository {
   Future<Map<String, dynamic>> loginWithFacebook(String idToken) async {
     try {
       final response = await _apiService.dio.post(
-        '/auth/facebook-login', // Trỏ đúng vào route BE bạn vừa viết
+        '/auth/facebook-login',
         data: {
-          'token': idToken // BE yêu cầu lấy "token" từ req.body
+          'token': idToken
         },
       );
       return response.data;
     } on DioException catch (e) {
-      // Bắt lỗi từ Backend trả về (Ví dụ: Lỗi 409 trùng Email)
       throw e.response?.data['message'] ?? 'Lỗi kết nối Server khi đăng nhập Facebook';
     }
   }

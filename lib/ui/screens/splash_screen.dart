@@ -21,23 +21,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   void initState() {
     super.initState();
 
-    // Thiết lập Animation Controller (Thời lượng chuyển động: 1.2 giây)
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
 
-    // Hiệu ứng phóng to logo từ 0.5 lên 1.0 với đường cong nảy nhẹ (overshoot)
     _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
     );
 
-    // Hiệu ứng rõ dần từ mờ (0.0) lên rõ (1.0)
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeIn),
     );
 
-    // Hiệu ứng chữ trượt từ dưới lên
     _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
     );
@@ -45,12 +41,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // Bắt đầu chạy animation
     _animController.forward();
 
-    // Bắt đầu kiểm tra trạng thái đăng nhập song song
+    //kiểm tra trạng thái đăng nhập song song
     _checkLoginStatus();
   }
 
   Future<void> _checkLoginStatus() async {
-    // Đảm bảo màn hình hiển thị đủ 2 giây theo yêu cầu
     await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
@@ -59,7 +54,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     bool isLoggedIn = await authProvider.tryAutoLogin();
 
     if (isLoggedIn) {
-      // Đã đăng nhập -> Vào MainScreen (Sử dụng hiệu ứng mờ chuyển cảnh)
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
@@ -69,7 +63,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         ),
       );
     } else {
-      // Chưa -> Vào LoginScreen
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
@@ -92,7 +85,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return Scaffold(
       body: Container(
         width: double.infinity,
-        // Nền Gradient chuyển màu từ Xanh dương đậm sang Xanh dương nhạt (Đồng bộ với LoginScreen)
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFF0F3A99), Color(0xFF1A56DB)],
@@ -106,7 +98,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // === KHỐI LOGO ANIMATION ===
                 ScaleTransition(
                   scale: _scaleAnimation,
                   child: FadeTransition(
@@ -127,7 +118,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         ],
                       ),
                       child: Image.asset(
-                        'assets/logo-removebg.png', // Sử dụng file logo mới
+                        'assets/logo-removebg.png',
                         fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) => const Icon(
                           Icons.water_drop_rounded,
@@ -141,7 +132,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
                 const SizedBox(height: 24),
 
-                // === KHỐI TÊN ỨNG DỤNG ANIMATION ===
                 SlideTransition(
                   position: _slideAnimation,
                   child: FadeTransition(
@@ -174,7 +164,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               ],
             ),
 
-            // === KHỐI LOADING (Nằm ở dưới cùng) ===
             Positioned(
               bottom: 60,
               child: FadeTransition(

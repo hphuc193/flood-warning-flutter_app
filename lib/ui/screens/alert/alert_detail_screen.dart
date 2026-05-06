@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// Import các màn hình để gán cho 2 nút ở dưới cùng
-// Nhớ sửa lại đường dẫn này cho khớp với dự án của bạn
-// import '../evacuation_guide_screen.dart';
-// import '../sos_setup_screen.dart';
+import '../evacuation_guide_screen.dart';
+import '../sos_setup_screen.dart';
 
 class AlertDetailScreen extends StatelessWidget {
   const AlertDetailScreen({super.key});
@@ -70,7 +68,7 @@ class AlertDetailScreen extends StatelessWidget {
     );
   }
 
-  // ─── Các thành phần UI ──────────────────────────────────────────────────
+  // Các thành phần UI
 
   Widget _buildDangerHeader(BuildContext context) {
     return Container(
@@ -260,7 +258,7 @@ class AlertDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.directions_run_rounded, size: 20),
               label: const Text("HƯỚNG DẪN SƠ TÁN", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
               onPressed: () {
-                // Navigator.push(context, MaterialPageRoute(builder: (_) => const EvacuationGuideScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const EvacuationGuideScreen()));
               },
             ),
           ),
@@ -279,7 +277,6 @@ class AlertDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.sos_rounded, size: 20),
               label: const Text("GỌI CỨU HỘ", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
               onPressed: () {
-                // Điều hướng sang màn SOS hoặc gọi trực tiếp triggerSOS của bạn
               },
             ),
           ),

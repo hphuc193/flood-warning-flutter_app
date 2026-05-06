@@ -17,7 +17,6 @@ class ReportDetailModal extends StatelessWidget {
     }
   }
 
-  // --- TRỢ THỦ LẤY MÀU MỨC ĐỘ ---
   Color _getSeverityColor(int? level) {
     if (level == null) return Colors.grey;
     if (level == 1) return Colors.green;
@@ -97,11 +96,9 @@ class ReportDetailModal extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              // 2. Nội dung mô tả
               Text(currentReport.description, style: const TextStyle(fontSize: 15)),
               const SizedBox(height: 12),
 
-              // --- BỔ SUNG: HIỂN THỊ LOẠI SỰ CỐ VÀ MỨC ĐỘ ---
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -124,7 +121,6 @@ class ReportDetailModal extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              // ---------------------------------------------
 
               // 3. Danh sách ảnh
               if (currentReport.images.isNotEmpty)

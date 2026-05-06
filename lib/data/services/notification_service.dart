@@ -2,8 +2,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:geolocator/geolocator.dart';
-
-// Import ApiService (Đường dẫn có thể cần chỉnh lại nếu khác thư mục)
 import 'api_service.dart';
 
 class NotificationService {
@@ -19,7 +17,7 @@ class NotificationService {
   Future<void> init() async {
     // 1. Cấu hình cho Android
     const AndroidInitializationSettings initializationSettingsAndroid =
-    AndroidInitializationSettings('@mipmap/ic_launcher'); // Icon mặc định của app
+    AndroidInitializationSettings('@mipmap/ic_launcher');
 
     // 2. Cấu hình cho iOS (nếu cần sau này)
     const DarwinInitializationSettings initializationSettingsDarwin =
@@ -47,7 +45,7 @@ class NotificationService {
     }
   }
 
-  // === HÀM 1: HIỂN THỊ THÔNG BÁO LOCAL (SỬ DỤNG CHO SOCKET REAL-TIME) ===
+  //HIỂN THỊ THÔNG BÁO LOCAL (SỬ DỤNG CHO SOCKET REAL-TIME)
   Future<void> showNotification({
     required int id,
     required String title,
@@ -78,7 +76,7 @@ class NotificationService {
     );
   }
 
-  // === HÀM 2: ĐỒNG BỘ DỮ LIỆU THIẾT BỊ LÊN BACKEND (FCM TOKEN + GPS) ===
+  //ĐỒNG BỘ DỮ LIỆU THIẾT BỊ LÊN BACKEND (FCM TOKEN + GPS)
   Future<void> updateDeviceTokenAndLocation() async {
     try {
       // 1. Xin quyền Notification từ Firebase
@@ -89,21 +87,20 @@ class NotificationService {
       );
 
       if (settings.authorizationStatus != AuthorizationStatus.authorized) {
-        print('⚠️ Người dùng đã từ chối quyền nhận thông báo FCM.');
-        // Không return ở đây vì vẫn muốn lấy GPS gửi lên (nếu có thể)
+        print('Người dùng đã từ chối quyền nhận thông báo FCM.');
       }
 
       // 2. Lấy FCM Token từ thiết bị
       String? fcmToken = await FirebaseMessaging.instance.getToken();
       if (fcmToken == null) {
-        print('❌ Không lấy được FCM Token');
+        print('Không lấy được FCM Token');
         return;
       }
 
       // 3. Xin quyền và lấy Tọa độ GPS (Location)
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        print('⚠️ Dịch vụ vị trí bị tắt.');
+        print('Dịch vụ vị trí bị tắt.');
         return;
       }
 
@@ -111,13 +108,13 @@ class NotificationService {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          print('⚠️ Quyền vị trí bị từ chối.');
+          print('Quyền vị trí bị từ chối.');
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        print('⚠️ Quyền vị trí bị từ chối vĩnh viễn.');
+        print('Quyền vị trí bị từ chối vĩnh viễn.');
         return;
       }
 
@@ -132,7 +129,7 @@ class NotificationService {
       // 5. Gửi dữ liệu qua API POST /api/v1/users/device
       final ApiService apiService = ApiService();
       await apiService.dio.post(
-          '/users/device', // Nhớ kiểm tra lại router bên Node.js có khớp không
+          '/users/device',
           data: {
             "fcm_token": fcmToken,
             "lat": position.latitude,
@@ -141,10 +138,10 @@ class NotificationService {
           }
       );
 
-      print('✅ Đồng bộ FCM Token và Location lên Backend thành công!');
+      print('Đồng bộ FCM Token và Location lên Backend thành công!');
 
     } catch (e) {
-      print('❌ Lỗi đồng bộ dữ liệu thiết bị: $e');
+      print('Lỗi đồng bộ dữ liệu thiết bị: $e');
     }
   }
 }

@@ -70,7 +70,6 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       print("Lỗi login Facebook: $e");
       if (context.mounted) {
-        // Cực kỳ quan trọng: Lỗi này sẽ lấy được dòng chữ "Email này đã được đăng ký bằng phương thức khác..." từ BE của bạn để báo cho User.
         _showErrorDialog(context, e.toString());
       }
       _setLoading(false);

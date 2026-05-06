@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../data/repositories/evacuation_repository.dart';
 import '../data/models/evacuation_guide_model.dart';
+import '../data/services/hive_service.dart';
 
 class EvacuationProvider with ChangeNotifier {
   final EvacuationRepository _repository = EvacuationRepository();
@@ -22,8 +22,7 @@ class EvacuationProvider with ChangeNotifier {
     notifyListeners();
 
     var connectivityResult = await (Connectivity().checkConnectivity());
-    bool hasInternet = connectivityResult != ConnectivityResult.none;
-    final prefs = await SharedPreferences.getInstance();
+    bool hasInternet = !connectivityResult.contains(ConnectivityResult.none);
 
     if (hasInternet) {
       try {
@@ -32,24 +31,25 @@ class EvacuationProvider with ChangeNotifier {
           _steps = fetchedSteps;
           _steps.sort((a, b) => a.step.compareTo(b.step)); // Sắp xếp theo thứ tự bước
 
-          // Lưu Cache dạng String JSON
-          await prefs.setString(_cacheKey, jsonEncode(_steps.map((e) => e.toJson()).toList()));
+          // Lưu Cache vào Hive (Data Box)
+          await HiveService.dataBox.put(_cacheKey, jsonEncode(_steps.map((e) => e.toJson()).toList()));
           _isOfflineMode = false;
         }
       } catch (e) {
-        await _loadFromLocal(prefs);
+        _loadFromLocal();
       }
     } else {
-      await _loadFromLocal(prefs);
+      _loadFromLocal();
     }
 
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<void> _loadFromLocal(SharedPreferences prefs) async {
+  void _loadFromLocal() {
     _isOfflineMode = true;
-    final cachedString = prefs.getString(_cacheKey);
+    // Đọc từ Hive cực kỳ nhanh
+    final cachedString = HiveService.dataBox.get(_cacheKey);
     if (cachedString != null) {
       final List decoded = jsonDecode(cachedString);
       _steps = decoded.map((e) => EvacuationStep.fromJson(e)).toList();

@@ -19,7 +19,7 @@ class EvacuationStep {
     return EvacuationStep(
       step: json['step'] ?? 0,
       title: json['title'] ?? '',
-      description: json['description'] ?? '', // Ánh xạ chính xác key 'description'
+      description: json['description'] ?? '',
       icon: json['icon'] ?? '',
       type: json['type'] ?? 'info',
       videoUrl: json['video_url'],

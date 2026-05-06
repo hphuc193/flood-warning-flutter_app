@@ -26,7 +26,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   late AnimationController _fabAnimController;
   late Animation<double> _fabScaleAnim;
 
-  // ĐÃ SỬA LẠI THỨ TỰ CHO KHỚP VỚI THANH ĐIỀU HƯỚNG BÊN DƯỚI
   late final List<Widget> _pages = [
     const DashboardScreen(),    // Index 0: Tổng Quan
     const MapScreen(),          // Index 1: Bản đồ
@@ -166,7 +165,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(28),
         child: Row(
           children: [
-            // CÁC INDEX NÀY ĐÃ ĐƯỢC MAP ĐÚNG VỚI MẢNG _PAGES PHÍA TRÊN
             _navItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Tổng Quan'),
             _navItem(1, Icons.map_rounded, Icons.map_outlined, 'Bản đồ'),
             const SizedBox(width: 72), // Chỗ trống cho FAB

@@ -8,9 +8,9 @@ class ReportRepository {
     required double lat,
     required double long,
     required String description,
-    required String category, // Thêm mới
-    required int severity,    // Thêm mới
-    required List<String> imagePaths, // Danh sách đường dẫn file ảnh trong máy
+    required String category,
+    required int severity,
+    required List<String> imagePaths,
   }) async {
     try {
       // 1. Tạo FormData
@@ -18,14 +18,14 @@ class ReportRepository {
         'lat': lat,
         'long': long,
         'description': description,
-        'category': category,           // Gửi loại sự cố
-        'severity': severity.toString() // Phải chuyển sang String khi gài vào FormData
+        'category': category,
+        'severity': severity.toString()
       });
 
       // 2. Duyệt qua danh sách ảnh và add vào FormData
       for (String path in imagePaths) {
         formData.files.add(MapEntry(
-          'images', // Tên field này phải khớp với backend (upload.array('images'))
+          'images',
           await MultipartFile.fromFile(path, filename: path.split('/').last),
         ));
       }
@@ -36,7 +36,7 @@ class ReportRepository {
         data: formData,
         options: Options(
           headers: {
-            'Content-Type': 'multipart/form-data', // Bắt buộc
+            'Content-Type': 'multipart/form-data',
           },
         ),
       );

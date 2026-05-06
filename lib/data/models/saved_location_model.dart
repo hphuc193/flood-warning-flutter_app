@@ -1,10 +1,10 @@
 class SavedLocationModel {
-  final int? id; // ID có thể null khi mới tạo ở client chưa gửi lên server
+  final int? id;
   final int? userId;
   final String name;
   final double lat;
   final double long;
-  final double radius; // Bán kính 1-10km
+  final double radius;
   final String priority; // high, medium, low
   final bool isActive; // Bật/tắt thông báo
 

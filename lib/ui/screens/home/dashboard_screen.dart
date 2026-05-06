@@ -3,18 +3,27 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+
+import '../../../providers/network_sync_provider.dart';
+import '../../../providers/notification_provider.dart';
+import '../../widgets/offline_banner.dart';
 
 import '../../../providers/weather_provider.dart';
 import '../../../providers/rainfall_provider.dart';
 import '../../../data/models/weather_model.dart';
 import '../../../data/models/weather_forecast_model.dart';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
+import '../../../data/services/socket_service.dart';
+
 import '../weather/weather_location_list_screen.dart';
 import '../weather/rainfall_history_screen.dart';
 import '../../../data/services/api_service.dart';
+import 'notification_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -44,9 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   List<DateTime> _aiChartTimes = [];
   Map<String, dynamic>? _aiSummary;
 
-  // === THÊM BIẾN LƯU MỨC ĐỘ NGUY HIỂM TỪ BACKEND TRẢ VỀ ===
   String _currentRiskLevelString = "THẤP";
-  // =========================================================
 
   @override
   void initState() {
@@ -54,12 +61,59 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _animController.forward();
+    _setupRealtimeListeners();
   }
 
   @override
   void dispose() {
     _animController.dispose();
     super.dispose();
+  }
+
+  void _setupRealtimeListeners() {
+    // 1. Khởi tạo kết nối Socket
+    SocketService().initSocket();
+
+    final notifProvider = Provider.of<NotificationProvider>(context, listen: false);
+
+    // 2. Lắng nghe Socket: Khi có báo cáo ngập lụt mới
+    SocketService().onNewFloodReport((data) {
+      print('🔔 Cập nhật UI từ Socket: Có báo cáo mới');
+
+      // Gọi API làm mới danh sách thông báo -> Chấm đỏ sẽ tự động nảy số
+      notifProvider.fetchNotifications(refresh: true);
+
+      // Tùy chọn: Hiện một popup nhỏ (SnackBar) báo cho người dùng biết
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cộng đồng vừa báo cáo một điểm ngập mới!'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    });
+
+    // 3. Lắng nghe Firebase FCM (Khi đang mở App - Foreground)
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('💌 Nhận Push FCM Foreground: ${message.notification?.title}');
+
+      // Có thông báo đẩy -> Làm mới danh sách và nảy số chấm đỏ
+      notifProvider.fetchNotifications(refresh: true);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message.notification?.title ?? 'Bạn có thông báo mới!'),
+            backgroundColor: Colors.blueAccent,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    });
   }
 
   Future<void> _fetchUVIndex(double lat, double lon) async {
@@ -87,7 +141,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     try {
       int locationId = 1;
       final apiService = ApiService();
-      final response = await apiService.dio.get('/forecast/$locationId'); // Đảm bảo khớp route BE của bạn
+      final response = await apiService.dio.get('/ai/forecast/$locationId');
 
       if (response.data['success'] == true) {
         final data = response.data['data'];
@@ -109,11 +163,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             _aiRiskSpots = spots;
             _aiChartTimes = times;
 
-            // === CẬP NHẬT CHỮ NGUY HIỂM TỪ BE ===
             if (chartList.isNotEmpty) {
               _currentRiskLevelString = chartList[0]['risk_level']?.toString().toUpperCase() ?? "THẤP";
             }
-            // =====================================
 
             _isLoadingAI = false;
           });
@@ -125,6 +177,32 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     }
   }
 
+  Future<void> _onRefresh() async {
+    final isOffline = Provider.of<NetworkSyncProvider>(context, listen: false).isOffline;
+    if (isOffline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Không thể làm mới dữ liệu khi mất mạng!")),
+      );
+      return;
+    }
+
+    final weatherProvider = Provider.of<WeatherProvider>(context, listen: false);
+    final currentLoc = weatherProvider.currentLocation;
+    final double currentLat = currentLoc['lat'] ?? 10.7626;
+    final double currentLon = currentLoc['lon'] ?? 106.6602;
+
+    setState(() {
+      _isLoadingUV = true;
+      _isLoadingAI = true;
+    });
+
+    await Future.wait([
+      Provider.of<RainfallProvider>(context, listen: false).fetchRainfallHistory(currentLat, currentLon, days: 30),
+      _fetchUVIndex(currentLat, currentLon),
+      _fetchAIForecast(),
+    ]);
+  }
+
   String _getUVLabel(double? uv) {
     if (uv == null) return "--";
     if (uv <= 2.9) return "Thấp";
@@ -134,11 +212,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     return "Nguy hiểm";
   }
 
-  // === ĐỔI LOGIC MÀU SẮC THEO CHỮ TỪ BACKEND ===
   Color _getRiskColorByString(String levelStr) {
     if (levelStr.contains('CAO') || levelStr.contains('NGUY HIỂM')) return const Color(0xFFEF4444);
     if (levelStr.contains('TRUNG BÌNH') || levelStr.contains('VỪA')) return const Color(0xFFF59E0B);
-    return const Color(0xFF10B981); // THẤP, AN TOÀN -> Xanh lá
+    return const Color(0xFF10B981);
   }
 
   String _getRiskTextByString(String levelStr) {
@@ -146,11 +223,25 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     if (levelStr.contains('TRUNG BÌNH') || levelStr.contains('VỪA')) return "CẢNH BÁO MỨC ĐỘ VỪA";
     return "TÌNH TRẠNG AN TOÀN";
   }
-  // =============================================
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: _textSecondary),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ));
+
+    final isOffline = context.watch<NetworkSyncProvider>().isOffline;
     final weatherProvider = Provider.of<WeatherProvider>(context);
+    final notifProvider = Provider.of<NotificationProvider>(context);
+
     final weather = weatherProvider.currentWeather;
     final forecastData = weatherProvider.forecastData;
 
@@ -161,67 +252,141 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     if (weather != null && !_hasFetchedInitialData) {
       _hasFetchedInitialData = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Provider.of<RainfallProvider>(context, listen: false).fetchRainfallHistory(currentLat, currentLon, days: 30);
-        _fetchUVIndex(currentLat, currentLon);
-        _fetchAIForecast();
+        if (!isOffline) {
+          Provider.of<RainfallProvider>(context, listen: false).fetchRainfallHistory(currentLat, currentLon, days: 30);
+          _fetchUVIndex(currentLat, currentLon);
+          _fetchAIForecast();
+        }
       });
     }
 
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _bg,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text("Tổng quan & Dự báo", style: TextStyle(color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
-      ),
-      body: weather == null
-          ? const Center(child: CircularProgressIndicator())
-          : FadeTransition(
-        opacity: _fadeAnim,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Truyền trực tiếp chuỗi mức độ rủi ro vào
-              _buildRiskCard(weather, _currentRiskLevelString),
-              const SizedBox(height: 20),
+      body: Column(
+        children: [
+          if (isOffline) const SafeArea(bottom: false, child: OfflineBanner()),
 
-              _buildSectionTitle("CHỈ SỐ HIỆN TẠI"),
-              const SizedBox(height: 10),
-              _buildWeatherSummaryGrid(weather),
+          // 2. HEADER TỰ CUSTOM
+          _buildCustomHeader(context, isOffline, notifProvider),
 
-              const SizedBox(height: 16),
+          // 3. NỘI DUNG CHÍNH CỦA DASHBOARD
+          Expanded(
+            child: weather == null
+                ? const Center(child: CircularProgressIndicator())
+                : FadeTransition(
+              opacity: _fadeAnim,
+              child: RefreshIndicator(
+                color: _accent,
+                backgroundColor: _surface,
+                onRefresh: _onRefresh,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildRiskCard(weather, _currentRiskLevelString),
+                      const SizedBox(height: 20),
 
-              _buildSectionTitle("DỰ BÁO NGUY CƠ THEO GIỜ (AI)"),
-              const SizedBox(height: 10),
-              _build24hRiskChart(),
+                      _buildSectionTitle("CHỈ SỐ HIỆN TẠI"),
+                      const SizedBox(height: 10),
+                      _buildWeatherSummaryGrid(weather),
 
-              const SizedBox(height: 20),
+                      const SizedBox(height: 16),
 
-              _buildSectionHeaderWithAction("DỰ BÁO 5 NGÀY TỚI", () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const WeatherLocationListScreen()));
-              }),
-              const SizedBox(height: 10),
-              _build5DayForecast(forecastData),
+                      _buildSectionTitle("DỰ BÁO NGUY CƠ THEO GIỜ (AI)"),
+                      const SizedBox(height: 10),
+                      _build24hRiskChart(),
 
-              const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-              _buildSectionHeaderWithAction("LỊCH SỬ LƯỢNG MƯA (30 NGÀY)", () {
-                Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => RainfallHistoryScreen(
-                    lat: currentLat,
-                    long: currentLon,
-                    locationName: weather.city,
+                      _buildSectionHeaderWithAction(
+                          title: "DỰ BÁO 5 NGÀY TỚI",
+                          isDisabled: isOffline,
+                          onTap: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const WeatherLocationListScreen()));
+                          }
+                      ),
+                      const SizedBox(height: 10),
+                      _build5DayForecast(forecastData),
+
+                      const SizedBox(height: 20),
+
+                      _buildSectionHeaderWithAction(
+                          title: "LỊCH SỬ LƯỢNG MƯA (30 NGÀY)",
+                          isDisabled: isOffline,
+                          onTap: () {
+                            Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => RainfallHistoryScreen(
+                                lat: currentLat,
+                                long: currentLon,
+                                locationName: weather.city,
+                              ),
+                            ));
+                          }
+                      ),
+                      const SizedBox(height: 10),
+                      _buildRainfallHeatmap(),
+
+                      const SizedBox(height: 120),
+                    ],
                   ),
-                ));
-              }),
-              const SizedBox(height: 10),
-              _buildRainfallHeatmap(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              const SizedBox(height: 120),
+  Widget _buildCustomHeader(BuildContext context, bool isOffline, NotificationProvider notifProvider) {
+    return Container(
+      color: _bg,
+      child: SafeArea(
+        bottom: false,
+        top: !isOffline, // Tự động né tai thỏ nếu chưa có Banner Offline
+        child: SizedBox(
+          height: 56, // Độ cao tiêu chuẩn của AppBar
+          child: Row(
+            children: [
+              const SizedBox(width: 48), // Cân bằng không gian bên trái để title nằm giữa
+              const Expanded(
+                child: Text(
+                  "Tổng quan & Dự báo",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+              SizedBox(
+                width: 48,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(CupertinoIcons.bell_fill, color: _textPrimary, size: 24),
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()));
+                      },
+                    ),
+                    if (notifProvider.unreadCount > 0)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          child: Text(
+                            notifProvider.unreadCount > 99 ? '99+' : '${notifProvider.unreadCount}',
+                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -229,25 +394,20 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: _textSecondary),
-    );
-  }
-
-  Widget _buildSectionHeaderWithAction(String title, VoidCallback onTap) {
+  Widget _buildSectionHeaderWithAction({required String title, required VoidCallback onTap, bool isDisabled = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _buildSectionTitle(title),
         GestureDetector(
-          onTap: onTap,
+          onTap: isDisabled ? () {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tính năng này cần kết nối mạng.")));
+          } : onTap,
           child: Row(
             children: [
-              const Text("Xem chi tiết", style: TextStyle(fontSize: 12, color: _accent, fontWeight: FontWeight.w600)),
+              Text("Xem chi tiết", style: TextStyle(fontSize: 12, color: isDisabled ? Colors.grey : _accent, fontWeight: FontWeight.w600)),
               const SizedBox(width: 2),
-              const Icon(CupertinoIcons.chevron_right, size: 14, color: _accent),
+              Icon(CupertinoIcons.chevron_right, size: 14, color: isDisabled ? Colors.grey : _accent),
             ],
           ),
         ),
@@ -269,7 +429,6 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     );
   }
 
-  // Nhận String thay vì double
   Widget _buildRiskCard(WeatherModel weather, String riskLevelStr) {
     final bgColor = _getRiskColorByString(riskLevelStr);
 
@@ -374,7 +533,6 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     );
   }
 
-  // === BIỂU ĐỒ NÂNG CẤP TỰ ĐỘNG CO GIÃN TRỤC Y ===
   Widget _build24hRiskChart() {
     if (_isLoadingAI) {
       return Container(
@@ -388,15 +546,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       return Container(
         height: 220,
         decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: _border)),
-        child: const Center(child: Text("Hệ thống AI đang xử lý, chưa có dữ liệu.", style: TextStyle(color: _textSecondary))),
+        child: const Center(child: Text("Dữ liệu đang được đồng bộ...", style: TextStyle(color: _textSecondary))),
       );
     }
 
-    // Tìm giá trị rủi ro cao nhất để set maxY cho trục Y
     double maxRiskScore = _aiRiskSpots.map((spot) => spot.y).reduce(max);
-    // Đảm bảo tối thiểu là 10, nếu vượt 10 thì cộng thêm 20% khoảng trống bên trên cho đẹp
     double dynamicMaxY = maxRiskScore > 10 ? maxRiskScore + (maxRiskScore * 0.2) : 10;
-    // Tính toán lại các mốc kẻ ngang (Interval)
     double leftInterval = (dynamicMaxY / 5).ceilToDouble();
     if (leftInterval <= 0) leftInterval = 2;
 
@@ -409,11 +564,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           minX: 0,
           maxX: (_aiRiskSpots.length - 1).toDouble(),
           minY: 0,
-          maxY: dynamicMaxY, // Áp dụng maxY động
+          maxY: dynamicMaxY,
           gridData: FlGridData(
               show: true,
               drawVerticalLine: false,
-              horizontalInterval: leftInterval, // Kẻ đường ngang theo interval
+              horizontalInterval: leftInterval,
               getDrawingHorizontalLine: (value) => FlLine(color: _border, strokeWidth: 1)
           ),
           titlesData: FlTitlesData(
@@ -439,7 +594,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                     showTitles: true,
-                    interval: leftInterval, // Thay đổi khoảng cách chữ bên trái
+                    interval: leftInterval,
                     reservedSize: 28,
                     getTitlesWidget: (v, m) => Text(v.toInt().toString(), style: const TextStyle(color: _textSecondary, fontSize: 11))
                 )
@@ -547,7 +702,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           return Container(
             height: 100,
             decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _border)),
-            child: const Center(child: Text("Chưa có dữ liệu lịch sử lượng mưa.", style: TextStyle(color: _textSecondary))),
+            child: const Center(child: Text("Dữ liệu đang được đồng bộ...", style: TextStyle(color: _textSecondary))),
           );
         }
 

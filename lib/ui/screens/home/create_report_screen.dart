@@ -5,6 +5,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'map_picker_screen.dart';
 import '../../../providers/report_provider.dart';
+import '../../../providers/network_sync_provider.dart';
+import '../../widgets/offline_banner.dart';
 
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
@@ -23,7 +25,6 @@ class _CreateReportScreenState extends State<CreateReportScreen>
   double? _longitude;
   bool _gettingLocation = true;
 
-  // ── Thêm State cho Danh mục và Mức độ ─────────────────────────
   String? _selectedCategory;
   double _severityLevel = 1.0; // 1 đến 5
 
@@ -39,7 +40,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
 
-  // ── Color tokens ──────────────────────────────────────────────
+  // Color tokens
   static const Color _bg           = Color(0xFFF5F7FA);
   static const Color _surface      = Color(0xFFFFFFFF);
   static const Color _primary      = Color(0xFF2563EB);
@@ -67,7 +68,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     super.dispose();
   }
 
-  // ── Logic (unchanged) ─────────────────────────────────────────
+  // Logic (unchanged)
   Future<void> _getCurrentLocation() async {
     setState(() => _gettingLocation = true);
     bool serviceEnabled;
@@ -133,53 +134,63 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     return "Khẩn cấp";
   }
 
-  // ── Build ──────────────────────────────────────────────────────
+  // Build
   @override
   Widget build(BuildContext context) {
     final reportProvider = Provider.of<ReportProvider>(context);
+    // LẮNG NGHE TRẠNG THÁI MẠNG
+    final isOffline = context.watch<NetworkSyncProvider>().isOffline;
 
     return Scaffold(
       backgroundColor: _bg,
       appBar: _buildAppBar(),
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _sectionLabel("📍 Vị trí sự cố"),
-              const SizedBox(height: 10),
-              _buildLocationCard(),
-              const SizedBox(height: 24),
+      // SỬ DỤNG COLUMN ĐỂ ĐẶT BANNER LÊN ĐẦU
+      body: Column(
+        children: [
+          if (isOffline) const OfflineBanner(),
 
-              // ── BỔ SUNG: CHỌN DANH MỤC SỰ CỐ ──────────
-              _sectionLabel("Loại sự cố"),
-              const SizedBox(height: 10),
-              _buildCategorySelection(),
-              const SizedBox(height: 24),
+          Expanded(
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _sectionLabel("📍 Vị trí sự cố"),
+                    const SizedBox(height: 10),
+                    _buildLocationCard(),
+                    const SizedBox(height: 24),
 
-              // ── BỔ SUNG: KÉO MỨC ĐỘ NGHIÊM TRỌNG ──────────
-              _sectionLabel("Mức độ nghiêm trọng"),
-              const SizedBox(height: 10),
-              _buildSeveritySlider(),
-              const SizedBox(height: 24),
+                    _sectionLabel("Loại sự cố"),
+                    const SizedBox(height: 10),
+                    _buildCategorySelection(),
+                    const SizedBox(height: 24),
 
-              _sectionLabel("Mô tả tình trạng"),
-              const SizedBox(height: 10),
-              _buildDescriptionField(),
-              const SizedBox(height: 24),
+                    _sectionLabel("Mức độ nghiêm trọng"),
+                    const SizedBox(height: 10),
+                    _buildSeveritySlider(),
+                    const SizedBox(height: 24),
 
-              _sectionLabel("Hình ảnh hiện trường"),
-              const SizedBox(height: 10),
-              _buildImageSection(),
-              const SizedBox(height: 36),
+                    _sectionLabel("Mô tả tình trạng"),
+                    const SizedBox(height: 10),
+                    _buildDescriptionField(),
+                    const SizedBox(height: 24),
 
-              _buildSubmitButton(reportProvider),
-              const SizedBox(height: 24),
-            ],
+                    _sectionLabel("Hình ảnh hiện trường"),
+                    const SizedBox(height: 10),
+                    _buildImageSection(),
+                    const SizedBox(height: 36),
+
+                    // Truyền isOffline vào để xử lý khóa nút
+                    _buildSubmitButton(reportProvider, isOffline),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -207,7 +218,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     ),
   );
 
-  // ── Section label ──────────────────────────────────────────────
+  // Section label
   Widget _sectionLabel(String text) => Text(
     text,
     style: const TextStyle(
@@ -216,7 +227,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     ),
   );
 
-  // ── Card container helper ──────────────────────────────────────
+  // Card container helper
   Widget _card({required Widget child}) => Container(
     width: double.infinity,
     decoration: BoxDecoration(
@@ -234,7 +245,6 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     child: child,
   );
 
-  // ── UI MỚI: Danh mục sự cố ────────────────────────────────────
   Widget _buildCategorySelection() => _card(
     child: Padding(
       padding: const EdgeInsets.all(16),
@@ -272,7 +282,6 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     ),
   );
 
-  // ── UI MỚI: Kéo thanh mức độ nghiêm trọng ──────────────────────
   Widget _buildSeveritySlider() {
     final activeColor = _getSeverityColor(_severityLevel);
 
@@ -345,7 +354,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     );
   }
 
-  // ── Location Card ──────────────────────────────────────────────
+  // Location Card
   Widget _buildLocationCard() => _card(
     child: Column(
       children: [
@@ -438,7 +447,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
         ),
       );
 
-  // ── Description Field ──────────────────────────────────────────
+  // Description Field
   Widget _buildDescriptionField() => _card(
     child: TextField(
       controller: _descController,
@@ -461,7 +470,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     ),
   );
 
-  // ── Image Section ──────────────────────────────────────────────
+  // Image Section
   Widget _buildImageSection() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -540,11 +549,15 @@ class _CreateReportScreenState extends State<CreateReportScreen>
     ],
   );
 
-  // ── Submit Button ──────────────────────────────────────────────
-  Widget _buildSubmitButton(ReportProvider reportProvider) {
-    final bool disabled = reportProvider.isLoading || _latitude == null;
+  // ubmit Button
+  Widget _buildSubmitButton(ReportProvider reportProvider, bool isOffline) {
+    // Khóa nút nếu: Đang gửi API || Chưa có tọa độ GPS || Đang mất mạng
+    final bool disabled = reportProvider.isLoading || _latitude == null || isOffline;
+
     return GestureDetector(
-      onTap: disabled ? null : () async {
+      onTap: disabled
+          ? (isOffline ? () => _snack("Tính năng này đã bị khóa vì mất mạng.") : null)
+          : () async {
         // UI Validation
         if (_selectedCategory == null) {
           _snack("Vui lòng chọn loại sự cố"); return;
@@ -553,13 +566,12 @@ class _CreateReportScreenState extends State<CreateReportScreen>
           _snack("Vui lòng nhập mô tả tình trạng"); return;
         }
 
-        // GỌI HÀM VỚI ĐẦY ĐỦ THAM SỐ MỚI
         bool success = await reportProvider.createReport(
           _latitude!,
           _longitude!,
           _descController.text,
-          _selectedCategory!,         // Truyền danh mục đã chọn
-          _severityLevel.toInt(),     // Ép slider (double) sang int (1-5)
+          _selectedCategory!,
+          _severityLevel.toInt(),
           _selectedImages.map((e) => e.path).toList(),
           context,
         );
@@ -577,7 +589,7 @@ class _CreateReportScreenState extends State<CreateReportScreen>
             colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
             begin: Alignment.topLeft, end: Alignment.bottomRight,
           ),
-          color: disabled ? _border : null,
+          color: disabled ? _border : null, // Trở thành màu xám khi disabled
           borderRadius: BorderRadius.circular(16),
           boxShadow: disabled ? [] : [
             BoxShadow(
@@ -592,12 +604,14 @@ class _CreateReportScreenState extends State<CreateReportScreen>
             width: 22, height: 22,
             child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
           )
-              : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.send_rounded, color: Colors.white, size: 18),
-            SizedBox(width: 10),
-            Text("GỬI BÁO CÁO NGAY",
+              : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(isOffline ? Icons.wifi_off_rounded : Icons.send_rounded, color: disabled ? _textSecondary : Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Text(
+              isOffline ? "KHÓA KHI NGOẠI TUYẾN" : "GỬI BÁO CÁO NGAY",
               style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w800,
+                color: disabled ? _textSecondary : Colors.white,
+                fontWeight: FontWeight.w800,
                 fontSize: 15, letterSpacing: 0.5,
               ),
             ),

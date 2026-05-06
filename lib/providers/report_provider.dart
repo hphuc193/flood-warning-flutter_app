@@ -13,7 +13,7 @@ class ReportProvider with ChangeNotifier {
 
   List<FloodReport> _reports = [];
   bool _isLoading = false;
-  bool _isFetchingMore = false; // Trạng thái đang tải trang tiếp theo
+  bool _isFetchingMore = false;
 
   // Biến quản lý phân trang & tìm kiếm
   int _currentPage = 1;
@@ -21,8 +21,6 @@ class ReportProvider with ChangeNotifier {
   int _totalItems = 0;
   String _currentSearch = '';
   String _currentStatus = '';
-
-  // === CÁC BIẾN QUẢN LÝ BỘ LỌC MỚI ===
   String _currentCategory = '';
   String _currentSeverity = '';
   String _currentTimeRange = '';
@@ -37,16 +35,15 @@ class ReportProvider with ChangeNotifier {
     bool reset = false,
     String search = '',
     String status = '',
-    String category = '',   // Thêm param category
-    String severity = '',   // Thêm param severity
-    String timeRange = '',  // Thêm param timeRange
+    String category = '',
+    String severity = '',
+    String timeRange = '',
   }) async {
     if (reset) {
       _currentPage = 1;
       _hasNextPage = true;
       _currentSearch = search;
       _currentStatus = status;
-      // Lưu lại trạng thái của các bộ lọc mới
       _currentCategory = category;
       _currentSeverity = severity;
       _currentTimeRange = timeRange;
@@ -55,7 +52,7 @@ class ReportProvider with ChangeNotifier {
       notifyListeners();
     }
 
-    if (!_hasNextPage) return; // Nếu hết trang thì không gọi nữa
+    if (!_hasNextPage) return;
 
     try {
       final response = await _apiService.dio.get(
@@ -65,7 +62,6 @@ class ReportProvider with ChangeNotifier {
           'limit': 15,
           'search': _currentSearch,
           'status': _currentStatus,
-          // Truyền các param lọc mới xuống Backend
           'category': _currentCategory,
           'severity': _currentSeverity,
           'time_range': _currentTimeRange,
@@ -107,7 +103,7 @@ class ReportProvider with ChangeNotifier {
     await fetchReports();
   }
 
-  // 2. Kích hoạt Socket lắng nghe real-time (ĐÃ MỞ LẠI THEO YÊU CẦU)
+  // 2. Kích hoạt Socket lắng nghe real-time
   void initRealtimeUpdates() {
     _socketService.initSocket();
 
@@ -149,15 +145,13 @@ class ReportProvider with ChangeNotifier {
       final reportId = data['id'];
       final index = _reports.indexWhere((r) => r.id == reportId);
       if (index != -1) {
-        // Có thể update nguyên model nếu hàm fromJson được setup chuẩn
-        // hoặc update cục bộ status
         _reports[index] = FloodReport.fromJson(data);
         notifyListeners();
       }
     });
   }
 
-  // 3. Tạo báo cáo (ĐÃ CẬP NHẬT ĐẦY ĐỦ THAM SỐ)
+  // 3. Tạo báo cáo
   Future<bool> createReport(
       double lat,
       double long,

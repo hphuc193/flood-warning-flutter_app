@@ -1,9 +1,14 @@
 import 'package:flood_warning_mobile_v1/providers/location_provider.dart';
+import 'package:flood_warning_mobile_v1/providers/network_sync_provider.dart';
+import 'package:flood_warning_mobile_v1/providers/notification_provider.dart';
 import 'package:flood_warning_mobile_v1/providers/profile_provider.dart';
 import 'package:flood_warning_mobile_v1/providers/rainfall_provider.dart';
+import 'package:flood_warning_mobile_v1/providers/setting_provider.dart';
 import 'package:flood_warning_mobile_v1/providers/sos_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'data/services/hive_service.dart';
+import 'data/services/map_offline_service.dart';
 import 'providers/auth_provider.dart';
 import 'ui/screens/auth/login_screen.dart';
 import 'providers/report_provider.dart';
@@ -19,12 +24,13 @@ import 'providers/evacuation_provider.dart';
 import 'providers/contact_provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await MapOfflineService.init();
+  await HiveService.init();
   await Firebase.initializeApp();
-  // Khởi tạo Notification
   await NotificationService().init();
-  // nạp dữ liệu Tiếng Việt
   await initializeDateFormatting('vi', null);
   await dotenv.load(fileName: ".env");
+
   runApp(const MyApp());
 }
 
@@ -45,6 +51,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => EvacuationProvider()),
         ChangeNotifierProvider(create: (_) => ContactProvider()),
         ChangeNotifierProvider(create: (_) => SosProvider()),
+        ChangeNotifierProvider(create: (_) => NetworkSyncProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => SettingProvider()),
       ],
       child: MaterialApp(
         title: 'Flood Warning System',
