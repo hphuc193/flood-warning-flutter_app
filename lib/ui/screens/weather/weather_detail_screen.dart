@@ -3,6 +3,45 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../data/models/weather_forecast_model.dart';
 
+// ==============================================================
+// LOGIC GLOBAL: DÙNG LOCAL ASSETS THAY CHO ICON NETWORK
+// ==============================================================
+Widget _buildWeatherIcon(String iconUrl, double size) {
+  String assetPath = 'assets/sun.png'; // Mặc định
+
+  if (iconUrl.contains('01')) {
+    assetPath = 'assets/sun.png'; // Trời quang
+  } else if (iconUrl.contains('02')) {
+    assetPath = 'assets/clouds-and-sun.png'; // Ít mây
+  } else if (iconUrl.contains('03') || iconUrl.contains('04') || iconUrl.contains('50')) {
+    assetPath = 'assets/cloudy.png'; // Nhiều mây, sương mù
+  } else if (iconUrl.contains('09') || iconUrl.contains('10') || iconUrl.contains('11')) {
+    assetPath = 'assets/heavy-rain.png'; // Các loại mưa, dông bão
+  } else if (iconUrl.contains('13')) {
+    assetPath = 'assets/snow.png'; // Tuyết
+  }
+
+  return Image.asset(
+    assetPath,
+    width: size,
+    height: size,
+    fit: BoxFit.contain,
+    errorBuilder: (context, error, stackTrace) {
+      return Image.network(
+        iconUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (c, e, s) => Icon(
+          Icons.wb_cloudy_rounded,
+          size: size * 0.6,
+          color: Colors.white70,
+        ),
+      );
+    },
+  );
+}
+
 class WeatherDetailScreen extends StatelessWidget {
   final String dateStr;
   final List<WeatherItem> dailyData;
@@ -139,7 +178,7 @@ class WeatherDetailScreen extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════
-//  HERO SUMMARY CARD
+//  HERO SUMMARY CARD (ĐÃ SỬA LỖI ICON BỊ CẮT XÉN)
 // ════════════════════════════════════════════════════════════
 class _HeroSummaryCard extends StatelessWidget {
   final double maxTemp, minTemp, avgHumidity, avgPop;
@@ -176,6 +215,7 @@ class _HeroSummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
+              // Bỏ ClipOval, bọc Padding và giảm size icon xuống 46
               Container(
                 width: 72,
                 height: 72,
@@ -183,8 +223,11 @@ class _HeroSummaryCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: Colors.white.withOpacity(0.15),
                 ),
-                child: ClipOval(
-                  child: _buildWeatherIcon(representativeItem.iconUrl, 72),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: _buildWeatherIcon(representativeItem.iconUrl, 46),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -320,7 +363,7 @@ class _SectionCard extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════
-//  ICON TIMELINE ROW
+//  ICON TIMELINE ROW (Sử dụng icon size 32 để tránh tràn viền)
 // ════════════════════════════════════════════════════════════
 class _IconTimelineRow extends StatelessWidget {
   final List<WeatherItem> data;
@@ -356,7 +399,7 @@ class _IconTimelineRow extends StatelessWidget {
                       fontWeight: isNoon ? FontWeight.bold : FontWeight.normal,
                     )),
                 const SizedBox(height: 4),
-                _buildWeatherIcon(item.iconUrl, 40),
+                _buildWeatherIcon(item.iconUrl, 32),
                 const SizedBox(height: 2),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -792,32 +835,4 @@ class _VisibilityHorizontalBars extends StatelessWidget {
       }),
     );
   }
-}
-
-Widget _buildWeatherIcon(String iconUrl, double size) {
-  final isSunny = iconUrl.contains('01d') || iconUrl.contains('01n');
-
-  if (isSunny) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Icon(
-        Icons.wb_sunny_rounded,
-        color: const Color(0xFFFF9500),
-        size: size * 0.75,
-      ),
-    );
-  }
-
-  return Image.network(
-    iconUrl,
-    width: size,
-    height: size,
-    fit: BoxFit.cover,
-    errorBuilder: (_, __, ___) => Icon(
-      Icons.wb_cloudy_rounded,
-      size: size * 0.6,
-      color: Colors.white70,
-    ),
-  );
 }

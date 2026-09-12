@@ -28,32 +28,43 @@ class WeatherMainScreen extends StatelessWidget {
     return [const Color(0xFF5B9BD5), const Color(0xFF2C5F8A)];
   }
 
+  // ==============================================================
+  // LOGIC: DÙNG LOCAL ASSETS THAY CHO ICON NETWORK
+  // ==============================================================
   Widget _buildWeatherIcon(String iconUrl, double size) {
-    final isSunny = iconUrl.contains('01d') || iconUrl.contains('01n');
+    String assetPath = 'assets/sun.png'; // Mặc định
 
-    if (isSunny) {
-      return Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        child: Icon(
-          Icons.wb_sunny_rounded,
-          color: const Color(0xFFFF9500),
-          size: size * 0.75,
-        ),
-      );
+    if (iconUrl.contains('01')) {
+      assetPath = 'assets/sun.png'; // Trời quang
+    } else if (iconUrl.contains('02')) {
+      assetPath = 'assets/clouds-and-sun.png'; // Ít mây
+    } else if (iconUrl.contains('03') || iconUrl.contains('04') || iconUrl.contains('50')) {
+      assetPath = 'assets/cloudy.png'; // Nhiều mây, sương mù
+    } else if (iconUrl.contains('09') || iconUrl.contains('10') || iconUrl.contains('11')) {
+      assetPath = 'assets/heavy-rain.png'; // Các loại mưa, dông bão
+    } else if (iconUrl.contains('13')) {
+      assetPath = 'assets/snow.png'; // Tuyết
     }
 
-    return Image.network(
-      iconUrl,
+    return Image.asset(
+      assetPath,
       width: size,
       height: size,
-      fit: BoxFit.cover,
-      errorBuilder: (c, e, s) => Icon(
-        Icons.wb_cloudy_rounded,
-        size: size * 0.6,
-        color: Colors.white70,
-      ),
+      fit: BoxFit.contain, // Giúp ảnh không bị vỡ hoặc méo
+      errorBuilder: (context, error, stackTrace) {
+        // Safe Fallback: Nếu không tìm thấy file, tải ảnh từ API
+        return Image.network(
+          iconUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (c, e, s) => Icon(
+            Icons.wb_cloudy_rounded,
+            size: size * 0.6,
+            color: Colors.white70,
+          ),
+        );
+      },
     );
   }
 
@@ -267,7 +278,7 @@ class WeatherMainScreen extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                               child: Row(
                                 children: [
-                                  // Weather Icon with glow
+                                  // === ĐÃ FIX LỖI ICON BỊ CẮT ===
                                   Container(
                                     width: 64,
                                     height: 64,
@@ -282,8 +293,12 @@ class WeatherMainScreen extends StatelessWidget {
                                         ),
                                       ],
                                     ),
-                                    child: ClipOval(
-                                      child: _buildWeatherIcon(representativeItem.iconUrl, 64),
+                                    child: Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        // Thu nhỏ size ảnh xuống 40 để nằm lọt thỏm giữa khung tròn 64x64
+                                        child: _buildWeatherIcon(representativeItem.iconUrl, 40),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 14),

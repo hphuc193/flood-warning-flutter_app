@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.flood_warning_mobile_v1"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {

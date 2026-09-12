@@ -105,6 +105,14 @@ flutter:
     - assets/google_logo.png
     - assets/facebook_logo.png
     - assets/logo-removebg.png
+    - assets/weather.png
+    - assets/sun.png
+    - assets/snow.png
+    - assets/heavy-rain.png
+    - assets/cloudy.png
+    - assets/clouds-and-sun.png
+    - assets/CT1.png
+    - assets/CT2.png
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
