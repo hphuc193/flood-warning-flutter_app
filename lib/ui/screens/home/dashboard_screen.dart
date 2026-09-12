@@ -840,7 +840,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.72),
+            color: _accentMist,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, size: 14, color: _accentDeep),
@@ -865,8 +865,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: _textPrimary,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w800,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
             letterSpacing: -0.2,
           ),
         ),
