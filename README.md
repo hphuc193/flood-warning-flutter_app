@@ -5,6 +5,8 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-lightgrey.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+<img width="1672" height="941" alt="Image" src="https://github.com/user-attachments/assets/3ba9bb51-238d-42a8-958b-dfb66125bf04" />
+
 **Flood Warning System (FWS)** là ứng dụng di động thông minh hỗ trợ cảnh báo ngập lụt sớm dựa trên dữ liệu thời tiết thực tế và Trí tuệ Nhân tạo (AI). Ứng dụng giúp người dùng theo dõi tình hình thời tiết, dự báo rủi ro ngập lụt theo giờ, báo cáo các điểm ngập cục bộ và trang bị các kỹ năng ứng phó khẩn cấp.
 
 > **Lưu ý:** Đây là mã nguồn phân hệ Mobile (Flutter) thuộc Đồ án Khóa luận Tốt nghiệp ngành Kỹ thuật Phần mềm.
